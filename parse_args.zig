@@ -40,12 +40,7 @@ pub const ArgIteratorTest = struct {
     }
 };
 
-const ArgIteratorTypes = enum {
-    testAi,
-    osAi,
-};
-
-const ArgumentIterator = union(ArgIteratorTypes) {
+const ArgumentIterator = union(enum) {
     testAi: ArgIteratorTest,
     osAi: std.os.ArgIterator,
 };
@@ -57,7 +52,7 @@ const MyArgIterator = struct {
 
     pub fn initOsAi(pSelf: *Self) void {
         // TODO: init() returns ArgIterator
-        pSelf.ai(ArgIteratorTypes.osAi).init();
+        pSelf.ai(ArgumentIterator.osAi).init();
     }
 
     pub fn initTestAi(pSelf: *Self, args: []const []const u8) void {
@@ -66,20 +61,20 @@ const MyArgIterator = struct {
 
     pub fn next(pSelf: *Self, pAllocator: *Allocator) ?[]const u8 {
         switch (pSelf.ai) {
-            ArgIteratorTypes.testAi => {
+            ArgumentIterator.testAi => {
                 return pSelf.ai.testAi.next();
             },
-            //ArgIteratorTypes.osAi => |ai| return ai.next(pAllocator),
+            //ArgumentIterator.osAi => |ai| return ai.next(pAllocator),
             else => return null,
         }
     }
 
     pub fn skip(pSelf: *Self) bool {
         switch (pSelf.ai) {
-            ArgIteratorTypes.testAi => {
+            ArgumentIterator.testAi => {
                 return pSelf.ai.testAi.skip();
             },
-            ArgIteratorTypes.osAi => {
+            ArgumentIterator.osAi => {
                 return pSelf.ai.osAi.skip();
             },
         }
