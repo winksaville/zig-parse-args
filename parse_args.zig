@@ -1,7 +1,8 @@
 const std = @import("std");
 const debug = std.debug;
+const assert = debug.assert;
+const assertError = debug.assertError;
 const warn = debug.warn;
-const args = std.os.args;
 const fmt = std.fmt;
 const mem = std.mem;
 const HashMap = std.HashMap;
@@ -16,19 +17,19 @@ pub const ArgIteratorTest = struct {
 
     index: usize,
     count: usize,
-    params: []const []const u8,
+    args: []const []const u8,
 
-    pub fn init(pSelf: *Self, params: []const []const u8) void {
+    pub fn init(pSelf: *Self, args: []const []const u8) void {
         pSelf.index = 0;
-        pSelf.count = params.len;
-        pSelf.params = params;
+        pSelf.count = args.len;
+        pSelf.args = args;
     }
 
     pub fn next(pSelf: *Self) ?[]const u8 {
         if (pSelf.index == pSelf.count) return null;
 
         pSelf.index += 1;
-        return pSelf.params[pSelf.index - 1];
+        return pSelf.args[pSelf.index - 1];
     }
 
     pub fn skip(pSelf: *Self) bool {
@@ -59,8 +60,8 @@ const MyArgIterator = struct {
         pSelf.ai(ArgIteratorTypes.osAi).init();
     }
 
-    pub fn initTestAi(pSelf: *Self, params: []const []const u8) void {
-        pSelf.ai.testAi.init(params);
+    pub fn initTestAi(pSelf: *Self, args: []const []const u8) void {
+        pSelf.ai.testAi.init(args);
     }
 
     pub fn next(pSelf: *Self, pAllocator: *Allocator) ?[]const u8 {
@@ -85,52 +86,89 @@ const MyArgIterator = struct {
     }
 };
 
-const Arg = struct {
+const ParsedArg = struct {
     leader: []const u8,
     lhs: []const u8,
     sep: []const u8,
     rhs: []const u8,
 };
 
-fn ArgPrototype(comptime T: type) type {
+const Argument = struct {
+   leader: []const u8,              /// empty if none
+   name: []const u8,                /// name of arg
+   value_default_set: bool,         /// true if value_default has default value
+   value_set: bool,                 /// true if parse set the value
+   arg_union: ArgUnionFields,       /// union
+};
+
+const ArgUnionFields = union(enum) {
+    argU32: ArgUnion(u32),
+    argU64: ArgUnion(u64),
+    argU128: ArgUnion(u128),
+    argF32: ArgUnion(f32),
+    argF64: ArgUnion(f64),
+    argStr: ArgUnion([]const u8),
+};
+
+fn ArgUnion(comptime T: type) type {
     return struct {
-        leader: []const u8,             /// empty if none
-        name: []const u8,               /// name of arg
-        parser: fn([]const u8) error!T,  /// Parse the []const u8 to T
-        value_default_set: bool,        /// true if value_default has default value
-        value_default: T,               /// Value if a .name has no right hand side
-                                        /// and value_default_set
-        value_set: bool,                /// true if parse set the value
+        parser: fn([]const u8) error!T, /// Parse the []const u8 to T
+        value_default: T,               /// Value if .value_default_set is true and value_set is false
         value: T,                       /// Value if .value_set is true
     };
 }
 
-const ArgProtoUnion = union(enum) {
-    argU32: ArgPrototype(u32),
-    argU64: ArgPrototype(u64),
-    argF32: ArgPrototype(f32),
-    argF64: ArgPrototype(f64),
-    argStr: ArgPrototype([]const u8),
-};
+pub fn parseInteger(comptime T: type, value_str: []const u8) !T {
+    var radix: u32 = 10;
+    var value: u128 = 0;
+    for (value_str) |ch, i| {
+        if (ch == '_') continue;
 
-pub fn parseNumber(comptime T: type, value_str: []const u8) !T {
-    warn("parseNumber: value_str={}\n", value_str);
-    return parseInt(T, value_str, 10);
+        // To lower case
+        var lc: u8 = if ((ch >= 'A') and (ch <= 'Z')) ch + ('a' - 'A') else ch;
+
+        var v: u8 = undefined;
+        if ((lc >= '0') and (lc <= '9')) {
+            v = lc - '0';
+        } else {
+            if ((i == 1) and (value == 0)) {
+                switch (lc) {
+                    'b' => { radix = 2; continue; },
+                    'o' => { radix = 8; continue; },
+                    'd' => { radix = 10; continue; },
+                    'x' => { radix = 16; continue; },
+                    else => radix = 10,
+                }
+            }
+            v = 10 + (lc - 'a');
+        }
+        if (v >= radix) return error.InvalidCharacter;
+        value *= radix;
+        value += v;
+    }
+    return @intCast(T, value);
 }
 
 pub fn parseU32(value_str: []const u8) !u32 {
-    var v = try parseNumber(u32, value_str);
-    warn("parseU32: value_str={} v={}\n", value_str, v);
-    return v;
+    return try parseInteger(u32, value_str);
 }
 
-pub fn parseStr(comptime T: type, value_str: []const u8) !T {
+pub fn parseU64(value_str: []const u8) !u64 {
+    return try parseInteger(u64, value_str);
+}
+
+pub fn parseU128(value_str: []const u8) !u128 {
+    return try parseInteger(u128, value_str);
+}
+
+pub fn parseString(value_str: []const u8) ![]const u8 {
     if (value_str.len == 0) return error.WTF;
     return value_str;
 }
 
-pub fn parseArg(leader: []const u8, arg: []const u8, sep: []const u8) Arg {
-    var parsedArg = Arg {
+
+fn parseArg(leader: []const u8, arg: []const u8, sep: []const u8) ParsedArg {
+    var parsedArg = ParsedArg {
         .leader = "", .lhs = "", .sep = "", .rhs = "",
     };
     var idx: usize = 0;
@@ -159,150 +197,204 @@ pub fn parseArg(leader: []const u8, arg: []const u8, sep: []const u8) Arg {
 pub fn parseArgs(
     pAllocator: *Allocator,
     args_it: *MyArgIterator,
-    arg_proto_list: ArrayList(ArgProtoUnion),
-) !void {
+    arg_proto_list: ArrayList(Argument),
+) !ArrayList([]const u8) {
     if (!args_it.skip()) @panic("expected arg[0] to exist");
 
+    var positionalArgs = ArrayList([]const u8).init(pAllocator);
+
     // Add the arg_prototypes to a hash map
-    const ArgProtoMap = HashMap([]const u8, *ArgProtoUnion,
-                            mem.hash_slice_u8, mem.eql_slice_u8);
+    const ArgProtoMap = HashMap([]const u8, *Argument, mem.hash_slice_u8, mem.eql_slice_u8);
     var arg_proto_map = ArgProtoMap.init(pAllocator);
     var i: usize = 0;
     while (i < arg_proto_list.len) {
-        var arg_proto: *ArgProtoUnion = &arg_proto_list.items[i];
-        warn("&arg_proto={*}\n", arg_proto);
+        var arg_proto: *Argument = &arg_proto_list.items[i];
+        //warn("&arg_proto={*} name={}\n", arg_proto, arg_proto.name);
 
-        var name: []const u8 =
-            switch (arg_proto.*) {
-                ArgProtoUnion.argU32 => |ap| ap.name,
-                else => "",
-            };
-        warn("add: name={}\n", name);
+        if (arg_proto.value_default_set) {
+            switch (arg_proto.arg_union) {
+                ArgUnionFields.argU32 => arg_proto.arg_union.argU32.value = arg_proto.arg_union.argU32.value_default,
+                ArgUnionFields.argU64 => arg_proto.arg_union.argU64.value = arg_proto.arg_union.argU64.value_default,
+                ArgUnionFields.argU128 => arg_proto.arg_union.argU128.value = arg_proto.arg_union.argU128.value_default,
+                ArgUnionFields.argF32 => arg_proto.arg_union.argF32.value = arg_proto.arg_union.argF32.value_default,
+                ArgUnionFields.argF64 => arg_proto.arg_union.argF64.value = arg_proto.arg_union.argF64.value_default,
+                ArgUnionFields.argStr => arg_proto.arg_union.argStr.value = arg_proto.arg_union.argStr.value_default,
+            }
+            arg_proto.value_set = false;
+        }
 
-        if (arg_proto_map.contains(name)) {
+        if (arg_proto_map.contains(arg_proto.name)) {
+            var pKV = arg_proto_map.get(arg_proto.name);
+            var v = pKV.?.value;
+            warn("Duplicate arg_proto.name={} previous value was at index {}\n", arg_proto.name, i);
             return error.ArgProtoDuplicate;
         }
-        var r = try arg_proto_map.put(name, arg_proto);
-        if (r != null) {
-            return error.ArgProtoDuplicateWhenThereShouldNotBeAnDuplicate;
-        }
-        i += 1;
+        _ = try arg_proto_map.put(arg_proto.name, arg_proto);
 
-        var pKV = arg_proto_map.get(name);
-        if (pKV == null) {
-            return error.ArgJustAddedFailedGet;
-        }
-        var value: *ArgProtoUnion = pKV.?.value;
-        warn("value={*}\n", value);
+        i += 1;
     }
     
+    // Loop through all of the arguments passed setting the prototype values
+    // and returning the positional list.
     while (args_it.next(pAllocator)) |arg_or_error| {
         //var raw_arg = try arg_or_error;
         var raw_arg = arg_or_error;
-        warn("raw_arg={}\n", raw_arg);
         var arg = parseArg("--", raw_arg, "=");
-        warn("arg={}\n", arg);
         var pKV = arg_proto_map.get(arg.lhs);
         if (pKV == null) {
-            warn("pKV == NULL, NO match\n");
             // Doesn't match
             if (mem.eql(u8, arg.leader, "") and mem.eql(u8, arg.rhs, ""))  {
                 if (mem.eql(u8, arg.sep, "")) {
-                    // TODO: add to list of positional parameters to return. 
-                    warn("positional parameter={}\n", arg.lhs);
+                    try positionalArgs.append(arg.lhs);
                     continue;
                 } else {
-                    warn("Unknown and empty named parameter, raw_arg={} parsed arg={}\n", raw_arg, arg);
+                    warn("error.UnknownButEmptyNamedParameterUnknown, raw_arg={} parsed arg={}\n", raw_arg, arg);
                     return error.UnknownButEmptyNamedParameter;
                 }
             } else {
-                warn("Unknown option raw_arg={} parsed arg={}\n", raw_arg, arg);
+                warn("error.UnknownOption raw_arg={} parsed arg={}\n", raw_arg, arg);
                 return error.UnknownOption;
             } 
         }
 
         // Got a match
         var v = pKV.?.value;
-        warn("Match v={*} v.argU32.name={}\n", v, v.argU32.name);
-        var leader: []const u8 =
-            switch (v.*) {
-                ArgProtoUnion.argU32 => |ap| ap.leader,
-                else => "",
-            };
-        warn("Match: leader={}\n", leader);
-        var value_default_set: bool =
-            switch (v.*) {
-                ArgProtoUnion.argU32 => |ap| ap.value_default_set,
-                else => false,
-            };
-        warn("Match: value_default_set={}\n", value_default_set);
-        var isa_option = if (!mem.eql(u8, arg.leader, "")) mem.eql(u8, arg.leader[0..], leader[0..]) else false;
-        warn("Match: isa_option={}\n", isa_option);
-        if (mem.eql(u8, arg.rhs, "")) {
-            warn("No rhs\n");
-            if (value_default_set) {
-                switch (v.*) {
-                    ArgProtoUnion.argU32 => |ap| {
-                        v.argU32.value = ap.value_default;
-                        v.argU32.value_set = false; // This wasn't set from command line
-                    },
-                    else => {
-                        //v.argU32.value = 0;
-                        //v.argU32.value_set = false;
-                    },
-                }
-            } else {
-                //warn("No default value for {} {}\n",
-                //    if (isa_option) "option" else "named parameter", v.argU32);
-                return error.NoDefaultValue;
+        var isa_option = if (mem.eql(u8, arg.leader, "")) false else mem.eql(u8, arg.leader[0..], v.leader[0..]);
+        if (!mem.eql(u8, arg.rhs, "")) {
+            switch (v.arg_union) {
+                ArgUnionFields.argU32 => v.arg_union.argU32.value = try v.arg_union.argU32.parser(arg.rhs[0..]),
+                ArgUnionFields.argU64 => v.arg_union.argU64.value = try v.arg_union.argU64.parser(arg.rhs[0..]),
+                ArgUnionFields.argU128 => v.arg_union.argU128.value = try v.arg_union.argU128.parser(arg.rhs[0..]),
+                ArgUnionFields.argF32 => v.arg_union.argF32.value = try v.arg_union.argF32.parser(arg.rhs[0..]),
+                ArgUnionFields.argF64 => v.arg_union.argF64.value = try v.arg_union.argF64.parser(arg.rhs[0..]),
+                ArgUnionFields.argStr => v.arg_union.argStr.value = try v.arg_union.argStr.parser(arg.rhs[0..]),
             }
+            v.value_set = true; // This was set from the command line
         } else {
-            warn("rhs={}\n", arg.rhs);
-            switch (v.*) {
-                ArgProtoUnion.argU32 => {
-                    warn("Is argU32\n");
-                    v.argU32.value = try v.argU32.parser(arg.rhs[0..]);
-                    v.argU32.value_set = true; // This was set from the command line
-                    warn("v={*} v.argU32.value={} value_set={}\n", v, v.argU32.value, v.argU32.value_set);
-                },
-                else => {
-                    //v.argU32.value = 0;
-                    //v.argU32.value_set = false;
-                },
-            }
+            // Do nothgin as We've already initialize the default if there was one set
         }
     }
+    return positionalArgs;
+}
+
+test "parseInteger" {
+    assert((try parseInteger(u8, "0")) == @intCast(u8, 0));
+    assert((try parseInteger(u8, "0b0")) == @intCast(u8, 0));
+    assert((try parseInteger(u8, "0b1")) == @intCast(u8, 1));
+    assert((try parseInteger(u8, "0b1010_0101")) == @intCast(u8, 0xA5));
+    assertError(parseInteger(u8, "0b2"), error.InvalidCharacter);
+
+    assert((try parseInteger(u8, "0o0")) == @intCast(u8, 0));
+    assert((try parseInteger(u8, "0o1")) == @intCast(u8, 1));
+    assert((try parseInteger(u8, "0o7")) == @intCast(u8, 7));
+    assert((try parseInteger(u8, "0o77")) == @intCast(u8, 0x3f));
+    assert((try parseInteger(u32, "0o111_777")) == @intCast(u32, 0b1001001111111111));
+    assertError(parseInteger(u8, "0b8"), error.InvalidCharacter);
+
+    assert((try parseInteger(u8, "0d0")) == @intCast(u8, 0));
+    assert((try parseInteger(u8, "0d1")) == @intCast(u8, 1));
+    assert((try parseInteger(u8, "0d9")) == @intCast(u8, 9));
+    assert((try parseInteger(u8, "0")) == @intCast(u8, 0));
+    assert((try parseInteger(u8, "1")) == @intCast(u8, 1));
+    assert((try parseInteger(u8, "9")) == @intCast(u8, 9));
+    assert((try parseInteger(u64, "123_456_789")) == @intCast(u32, 123456789));
+    assertError(parseInteger(u8, "0d0000000a"), error.InvalidCharacter);
+
+    assert((try parseInteger(u8, "0x0")) == @intCast(u8, 0x0));
+    assert((try parseInteger(u8, "0x1")) == @intCast(u8, 0x1));
+    assert((try parseInteger(u8, "0x9")) == @intCast(u8, 0x9));
+    assert((try parseInteger(u8, "0xa")) == @intCast(u8, 0xa));
+    assert((try parseInteger(u8, "0xf")) == @intCast(u8, 0xf));
+    assert((try parseInteger(u128, "0x1234_5678_9ABc_Def0_0FEd_Cba9_8765_4321")) == @intCast(u128, 0x123456789ABcDef00FEdCba987654321));
+    assertError(parseInteger(u8, "0xg"), error.InvalidCharacter);
 }
 
 test "parseArgs.basic" {
     warn("\n");
-    var param1 = ArgPrototype(u32) {
-        .leader = "",
-        .name = "count",
-        .parser = parseU32,
-        .value_default_set = false,
-        .value_default = 0,
-        .value_set = false,
-        .value = 0,
-    };
-    warn("parseArgs.basic: &param1={*} &param1.name={*} param1.name={}\n", &param1, &param1.name, param1.name);
-    var p1 = ArgProtoUnion {
-        .argU32 = param1,
-    };
-    warn("parseArgs.basic: p1={*} &p1.argU32.name={*} p1.argU32.name={}\n", &p1, &p1.argU32.name, p1.argU32.name);
 
-    // Copy p1 to paramsList
-    var paramsList = ArrayList(ArgProtoUnion).init(debug.global_allocator);
-    try paramsList.append(p1);
-    warn("parseArgs.basic: &list[0]={*} ist[0].name={}\n", &paramsList.items[0], paramsList.items[0].argU32.name);
+    var argList = ArrayList(Argument).init(debug.global_allocator);
+
+    try argList.append(Argument {
+        .leader = "",
+        .name = "countU32",
+        .value_default_set = true,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argU32 = ArgUnion(u32) {
+                .parser = parseU32,
+                .value_default = 32,
+                .value = 0,
+            },
+        },
+    });
+
+    try argList.append(Argument {
+        .leader = "",
+        .name = "countU64",
+        .value_default_set = true,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argU64 = ArgUnion(u64) {
+                .parser = parseU64,
+                .value_default = 64,
+                .value = 0,
+            },
+        },
+    });
+
+    try argList.append(Argument {
+        .leader = "",
+        .name = "countU128",
+        .value_default_set = true,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argU128 = ArgUnion(u128) {
+                .parser = parseU128,
+                .value_default = 128,
+                .value = 0,
+            },
+        },
+    });
+
+    try argList.append(Argument {
+        .leader = "",
+        .name = "first_name",
+        .value_default_set = false,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argStr = ArgUnion([]const u8) {
+                .parser = parseString,
+                .value_default = "",
+                .value = "",
+            },
+        },
+    });
 
     var arg_iter: MyArgIterator = undefined;
     arg_iter.initTestAi([]const []const u8 {
         "abc",
-        "count=123",
+        "hello",
+        "countU32=321",
+        "countU64=641",
+        "countU128=0x1234_5678_9ABC_DEF0",
+        "first_name=wink",
+        "world",
     });
 
-    try parseArgs(debug.global_allocator, &arg_iter, paramsList);
-    warn("parseArgs.basic: &paramsList.items[0]={*}, paramsList.items[0]argU32.value={} value_set={}\n",
-            &paramsList.items[0], paramsList.items[0].argU32.value, paramsList.items[0].argU32.value_set);
+    var positionalArgs = try parseArgs(debug.global_allocator, &arg_iter, argList);
+    for (positionalArgs.toSlice()) |arg, i| {
+        warn("positionalArgs[{}]={}\n", i, arg);
+    }
+    for (argList.toSlice()) |arg, i| {
+        warn("argList[{}]: name={} value_set={} arg.value=", i, arg.name, arg.value_set);
+        switch (arg.arg_union) {
+            ArgUnionFields.argU32 => warn("{}", arg.arg_union.argU32.value),
+            ArgUnionFields.argU64 => warn("{}", arg.arg_union.argU64.value),
+            ArgUnionFields.argU128 => warn("{x}", arg.arg_union.argU128.value),
+            ArgUnionFields.argF32 => warn("{}", arg.arg_union.argF32.value),
+            ArgUnionFields.argF64 => warn("{}", arg.arg_union.argF64.value),
+            ArgUnionFields.argStr => warn("{}", arg.arg_union.argStr.value),
+        }
+        warn("\n");
+    }
 }
