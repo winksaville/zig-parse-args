@@ -160,8 +160,11 @@ const Argument = struct {
 
 const ArgUnionFields = union(enum) {
     argU32: ArgUnion(u32),
+    argI32: ArgUnion(i32),
     argU64: ArgUnion(u64),
+    argI64: ArgUnion(i64),
     argU128: ArgUnion(u128),
+    argI128: ArgUnion(i128),
     argF32: ArgUnion(f32),
     argF64: ArgUnion(f64),
     argStr: ArgUnion([]const u8),
@@ -179,6 +182,8 @@ fn ArgUnion(comptime T: type) type {
 pub fn parseInteger(comptime T: type, value_str: []const u8) !T {
     var radix: u32 = 10;
     var value: u128 = 0;
+    var negative: i128 = 1;
+
     for (value_str) |ch, i| {
         if (ch == '_') continue;
 
@@ -186,10 +191,13 @@ pub fn parseInteger(comptime T: type, value_str: []const u8) !T {
         var lc: u8 = if ((ch >= 'A') and (ch <= 'Z')) ch + ('a' - 'A') else ch;
 
         var v: u8 = undefined;
-        if ((lc >= '0') and (lc <= '9')) {
+        if ((lc == '-') and (i == 0)) {
+            negative = -1;
+            continue;
+        } else if ((lc >= '0') and (lc <= '9')) {
             v = lc - '0';
         } else {
-            if ((i == 1) and (value == 0)) {
+            if (((i == 1) or ((i == 2) and (negative < 0))) and (value == 0)) {
                 switch (lc) {
                     'b' => { radix = 2; continue; },
                     'o' => { radix = 8; continue; },
@@ -198,25 +206,45 @@ pub fn parseInteger(comptime T: type, value_str: []const u8) !T {
                     else => radix = 10,
                 }
             }
+            if ((lc < 'a') or (lc > 'f')) return error.InvalidCharacter;
             v = 10 + (lc - 'a');
         }
         if (v >= radix) return error.InvalidCharacter;
         value *= radix;
         value += v;
     }
-    return @intCast(T, value);
+    if (negative < 0) {
+        value = @bitCast(u128, negative *% @intCast(i128, value));
+    }
+    if (T.is_signed) {
+        return @intCast(T, @intCast(i128, value) & @intCast(T, -1));
+    } else {
+        return @intCast(T, value & @maxValue(T));
+    }
 }
 
 pub fn parseU32(value_str: []const u8) !u32 {
     return try parseInteger(u32, value_str);
 }
 
+pub fn parseI32(value_str: []const u8) !i32 {
+    return try parseInteger(i32, value_str);
+}
+
 pub fn parseU64(value_str: []const u8) !u64 {
     return try parseInteger(u64, value_str);
 }
 
+pub fn parseI64(value_str: []const u8) !i64 {
+    return try parseInteger(i64, value_str);
+}
+
 pub fn parseU128(value_str: []const u8) !u128 {
     return try parseInteger(u128, value_str);
+}
+
+pub fn parseI128(value_str: []const u8) !i128 {
+    return try parseInteger(i128, value_str);
 }
 
 pub fn parseStr(pAllocator: *Allocator, value_str: []const u8) ![]const u8 {
@@ -336,8 +364,11 @@ pub fn parseArgs(
         if (!mem.eql(u8, parsed_arg.rhs, "")) {
             switch (v.arg_union) {
                 ArgUnionFields.argU32 => v.arg_union.argU32.value = try v.arg_union.argU32.parser(parsed_arg.rhs[0..]),
+                ArgUnionFields.argI32 => v.arg_union.argI32.value = try v.arg_union.argI32.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argU64 => v.arg_union.argU64.value = try v.arg_union.argU64.parser(parsed_arg.rhs[0..]),
+                ArgUnionFields.argI64 => v.arg_union.argI64.value = try v.arg_union.argI64.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argU128 => v.arg_union.argU128.value = try v.arg_union.argU128.parser(parsed_arg.rhs[0..]),
+                ArgUnionFields.argI128 => v.arg_union.argI128.value = try v.arg_union.argI128.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argF32 => v.arg_union.argF32.value = try v.arg_union.argF32.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argF64 => v.arg_union.argF64.value = try v.arg_union.argF64.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argStr => v.arg_union.argStr.value = try v.arg_union.argStr.parser(pAllocator, parsed_arg.rhs[0..]),
@@ -348,8 +379,11 @@ pub fn parseArgs(
             if (v.value_default_set) {
                 switch (v.arg_union) {
                     ArgUnionFields.argU32 => v.arg_union.argU32.value = v.arg_union.argU32.value_default,
+                    ArgUnionFields.argI32 => v.arg_union.argI32.value = v.arg_union.argI32.value_default,
                     ArgUnionFields.argU64 => v.arg_union.argU64.value = v.arg_union.argU64.value_default,
+                    ArgUnionFields.argI64 => v.arg_union.argI64.value = v.arg_union.argI64.value_default,
                     ArgUnionFields.argU128 => v.arg_union.argU128.value = v.arg_union.argU128.value_default,
+                    ArgUnionFields.argI128 => v.arg_union.argI128.value = v.arg_union.argI128.value_default,
                     ArgUnionFields.argF32 => v.arg_union.argF32.value = v.arg_union.argF32.value_default,
                     ArgUnionFields.argF64 => v.arg_union.argF64.value = v.arg_union.argF64.value_default,
                     ArgUnionFields.argStr => v.arg_union.argStr.value = v.arg_union.argStr.value_default,
@@ -377,10 +411,16 @@ test "parseInteger" {
 
     assert((try parseInteger(u8, "0d0")) == @intCast(u8, 0));
     assert((try parseInteger(u8, "0d1")) == @intCast(u8, 1));
+    assert((try parseInteger(u8, "-0d1")) == @intCast(u8, 255));
     assert((try parseInteger(u8, "0d9")) == @intCast(u8, 9));
     assert((try parseInteger(u8, "0")) == @intCast(u8, 0));
-    assert((try parseInteger(u8, "1")) == @intCast(u8, 1));
+    assert((try parseInteger(u8, "-1")) == @intCast(u8, 255));
     assert((try parseInteger(u8, "9")) == @intCast(u8, 9));
+    assert((try parseInteger(u8, "127")) == @intCast(u8, 0x7F));
+    assert((try parseInteger(u8, "-127")) == @intCast(u8, 0x81));
+    assert((try parseInteger(u8, "-128")) == @intCast(u8, 0x80));
+    assert((try parseInteger(u8, "255")) == @intCast(u8, 255));
+    assert((try parseInteger(u8, "256")) == @intCast(u8, 0));
     assert((try parseInteger(u64, "123_456_789")) == @intCast(u32, 123456789));
     assertError(parseInteger(u8, "0d0000000a"), error.InvalidCharacter);
 
@@ -389,6 +429,19 @@ test "parseInteger" {
     assert((try parseInteger(u8, "0x9")) == @intCast(u8, 0x9));
     assert((try parseInteger(u8, "0xa")) == @intCast(u8, 0xa));
     assert((try parseInteger(u8, "0xf")) == @intCast(u8, 0xf));
+
+    assert((try parseInteger(i128, "-170141183460469231731687303715884105728")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000000)));
+    assert((try parseInteger(i128, "-170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000001)));
+    assert((try parseInteger(i128, "-1")) == @bitCast(i128, @intCast(u128, 0xffffffffffffffffffffffffffffffff)));
+    assert((try parseInteger(i128, "0"))  == @bitCast(i128, @intCast(u128, 0x00000000000000000000000000000000)));
+    assert((try parseInteger(i128, "170141183460469231731687303715884105726")) == @bitCast(i128, @intCast(u128, 0x7ffffffffffffffffffffffffffffffe)));
+    assert((try parseInteger(i128, "170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x7fffffffffffffffffffffffffffffff)));
+
+    assert((try parseInteger(u128, "0"))  == @intCast(u128, 0x00000000000000000000000000000000));
+    assert((try parseInteger(u128, "1"))  == @intCast(u128, 0x00000000000000000000000000000001));
+    assert((try parseInteger(u128, "340282366920938463463374607431768211454")) == @intCast(u128, 0xfffffffffffffffffffffffffffffffe));
+    assert((try parseInteger(u128, "340282366920938463463374607431768211455")) == @intCast(u128, 0xffffffffffffffffffffffffffffffff));
+
     assert((try parseInteger(u128, "0x1234_5678_9ABc_Def0_0FEd_Cba9_8765_4321")) == @intCast(u128, 0x123456789ABcDef00FEdCba987654321));
     assertError(parseInteger(u8, "0xg"), error.InvalidCharacter);
 }
@@ -414,6 +467,20 @@ test "parseArgs.basic" {
 
     try argList.append(Argument {
         .leader = "",
+        .name = "countI32",
+        .value_default_set = true,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argI32 = ArgUnion(i32) {
+                .parser = parseI32,
+                .value_default = -32,
+                .value = 0,
+            },
+        },
+    });
+
+    try argList.append(Argument {
+        .leader = "",
         .name = "countU64",
         .value_default_set = true,
         .value_set = false,
@@ -428,6 +495,20 @@ test "parseArgs.basic" {
 
     try argList.append(Argument {
         .leader = "",
+        .name = "countI64",
+        .value_default_set = true,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argI64 = ArgUnion(i64) {
+                .parser = parseI64,
+                .value_default = -64,
+                .value = 0,
+            },
+        },
+    });
+
+    try argList.append(Argument {
+        .leader = "",
         .name = "countU128",
         .value_default_set = true,
         .value_set = false,
@@ -435,6 +516,20 @@ test "parseArgs.basic" {
             .argU128 = ArgUnion(u128) {
                 .parser = parseU128,
                 .value_default = 128,
+                .value = 0,
+            },
+        },
+    });
+
+    try argList.append(Argument {
+        .leader = "",
+        .name = "countI128",
+        .value_default_set = true,
+        .value_set = false,
+        .arg_union = ArgUnionFields {
+            .argI128 = ArgUnion(i128) {
+                .parser = parseI128,
+                .value_default = -128,
                 .value = 0,
             },
         },
@@ -458,8 +553,11 @@ test "parseArgs.basic" {
         "abc",
         "hello",
         "countU32=321",
+        "countI32=-321",
         "countU64=641",
+        "countI64=-641",
         "countU128=0x1234_5678_9ABC_DEF0",
+        "countI128=-1281",
         "first_name=wink",
         "world",
     });
@@ -472,8 +570,11 @@ test "parseArgs.basic" {
         warn("argList[{}]: name={} value_set={} arg.value=", i, arg.name, arg.value_set);
         switch (arg.arg_union) {
             ArgUnionFields.argU32 => warn("{}", arg.arg_union.argU32.value),
+            ArgUnionFields.argI32 => warn("{}", arg.arg_union.argI32.value),
             ArgUnionFields.argU64 => warn("{}", arg.arg_union.argU64.value),
-            ArgUnionFields.argU128 => warn("{x}", arg.arg_union.argU128.value),
+            ArgUnionFields.argI64 => warn("{}", arg.arg_union.argI64.value),
+            ArgUnionFields.argU128 => warn("0x{x}", arg.arg_union.argU128.value),
+            ArgUnionFields.argI128 => warn("{}", arg.arg_union.argI128.value),
             ArgUnionFields.argF32 => warn("{}", arg.arg_union.argF32.value),
             ArgUnionFields.argF64 => warn("{}", arg.arg_union.argF64.value),
             ArgUnionFields.argStr => {
@@ -483,7 +584,16 @@ test "parseArgs.basic" {
         warn("\n");
     }
 
-    /// Free data any allocated data of ArgUnionFields.argStr
+    // Assert we have expected values
+    assert(argList.items[0].arg_union.argU32.value == 321);
+    assert(argList.items[1].arg_union.argI32.value == -321);
+    assert(argList.items[2].arg_union.argU64.value == 641);
+    assert(argList.items[3].arg_union.argI64.value == -641);
+    assert(argList.items[4].arg_union.argU128.value == 0x123456789ABCDEF0);
+    assert(argList.items[5].arg_union.argI128.value == -1281);
+    assert(mem.eql(u8, argList.items[6].arg_union.argStr.value, "wink"));
+
+    // Free data any allocated data of ArgUnionFields.argStr
     for (argList.toSlice()) |arg, i| {
         switch (arg.arg_union) {
             ArgUnionFields.argStr => {
