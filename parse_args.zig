@@ -1,3 +1,5 @@
+const parseInteger = @import("parsers.zig").parseInteger;
+
 const std = @import("std");
 const debug = std.debug;
 const assert = debug.assert;
@@ -179,49 +181,6 @@ fn ArgUnion(comptime T: type) type {
     };
 }
 
-pub fn parseInteger(comptime T: type, value_str: []const u8) !T {
-    var radix: u32 = 10;
-    var value: u128 = 0;
-    var negative: i128 = 1;
-
-    for (value_str) |ch, i| {
-        if (ch == '_') continue;
-
-        // To lower case
-        var lc: u8 = if ((ch >= 'A') and (ch <= 'Z')) ch + ('a' - 'A') else ch;
-
-        var v: u8 = undefined;
-        if ((lc == '-') and (i == 0)) {
-            negative = -1;
-            continue;
-        } else if ((lc >= '0') and (lc <= '9')) {
-            v = lc - '0';
-        } else {
-            if (((i == 1) or ((i == 2) and (negative < 0))) and (value == 0)) {
-                switch (lc) {
-                    'b' => { radix = 2; continue; },
-                    'o' => { radix = 8; continue; },
-                    'd' => { radix = 10; continue; },
-                    'x' => { radix = 16; continue; },
-                    else => radix = 10,
-                }
-            }
-            if ((lc < 'a') or (lc > 'f')) return error.InvalidCharacter;
-            v = 10 + (lc - 'a');
-        }
-        if (v >= radix) return error.InvalidCharacter;
-        value *= radix;
-        value += v;
-    }
-    if (negative < 0) {
-        value = @bitCast(u128, negative *% @intCast(i128, value));
-    }
-    if (T.is_signed) {
-        return @intCast(T, @intCast(i128, value) & @intCast(T, -1));
-    } else {
-        return @intCast(T, value & @maxValue(T));
-    }
-}
 
 pub fn parseU32(value_str: []const u8) !u32 {
     return try parseInteger(u32, value_str);
@@ -393,57 +352,6 @@ pub fn parseArgs(
         }
     }
     return positionalArgs;
-}
-
-test "parseInteger" {
-    assert((try parseInteger(u8, "0")) == @intCast(u8, 0));
-    assert((try parseInteger(u8, "0b0")) == @intCast(u8, 0));
-    assert((try parseInteger(u8, "0b1")) == @intCast(u8, 1));
-    assert((try parseInteger(u8, "0b1010_0101")) == @intCast(u8, 0xA5));
-    assertError(parseInteger(u8, "0b2"), error.InvalidCharacter);
-
-    assert((try parseInteger(u8, "0o0")) == @intCast(u8, 0));
-    assert((try parseInteger(u8, "0o1")) == @intCast(u8, 1));
-    assert((try parseInteger(u8, "0o7")) == @intCast(u8, 7));
-    assert((try parseInteger(u8, "0o77")) == @intCast(u8, 0x3f));
-    assert((try parseInteger(u32, "0o111_777")) == @intCast(u32, 0b1001001111111111));
-    assertError(parseInteger(u8, "0b8"), error.InvalidCharacter);
-
-    assert((try parseInteger(u8, "0d0")) == @intCast(u8, 0));
-    assert((try parseInteger(u8, "0d1")) == @intCast(u8, 1));
-    assert((try parseInteger(u8, "-0d1")) == @intCast(u8, 255));
-    assert((try parseInteger(u8, "0d9")) == @intCast(u8, 9));
-    assert((try parseInteger(u8, "0")) == @intCast(u8, 0));
-    assert((try parseInteger(u8, "-1")) == @intCast(u8, 255));
-    assert((try parseInteger(u8, "9")) == @intCast(u8, 9));
-    assert((try parseInteger(u8, "127")) == @intCast(u8, 0x7F));
-    assert((try parseInteger(u8, "-127")) == @intCast(u8, 0x81));
-    assert((try parseInteger(u8, "-128")) == @intCast(u8, 0x80));
-    assert((try parseInteger(u8, "255")) == @intCast(u8, 255));
-    assert((try parseInteger(u8, "256")) == @intCast(u8, 0));
-    assert((try parseInteger(u64, "123_456_789")) == @intCast(u32, 123456789));
-    assertError(parseInteger(u8, "0d0000000a"), error.InvalidCharacter);
-
-    assert((try parseInteger(u8, "0x0")) == @intCast(u8, 0x0));
-    assert((try parseInteger(u8, "0x1")) == @intCast(u8, 0x1));
-    assert((try parseInteger(u8, "0x9")) == @intCast(u8, 0x9));
-    assert((try parseInteger(u8, "0xa")) == @intCast(u8, 0xa));
-    assert((try parseInteger(u8, "0xf")) == @intCast(u8, 0xf));
-
-    assert((try parseInteger(i128, "-170141183460469231731687303715884105728")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000000)));
-    assert((try parseInteger(i128, "-170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000001)));
-    assert((try parseInteger(i128, "-1")) == @bitCast(i128, @intCast(u128, 0xffffffffffffffffffffffffffffffff)));
-    assert((try parseInteger(i128, "0"))  == @bitCast(i128, @intCast(u128, 0x00000000000000000000000000000000)));
-    assert((try parseInteger(i128, "170141183460469231731687303715884105726")) == @bitCast(i128, @intCast(u128, 0x7ffffffffffffffffffffffffffffffe)));
-    assert((try parseInteger(i128, "170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x7fffffffffffffffffffffffffffffff)));
-
-    assert((try parseInteger(u128, "0"))  == @intCast(u128, 0x00000000000000000000000000000000));
-    assert((try parseInteger(u128, "1"))  == @intCast(u128, 0x00000000000000000000000000000001));
-    assert((try parseInteger(u128, "340282366920938463463374607431768211454")) == @intCast(u128, 0xfffffffffffffffffffffffffffffffe));
-    assert((try parseInteger(u128, "340282366920938463463374607431768211455")) == @intCast(u128, 0xffffffffffffffffffffffffffffffff));
-
-    assert((try parseInteger(u128, "0x1234_5678_9ABc_Def0_0FEd_Cba9_8765_4321")) == @intCast(u128, 0x123456789ABcDef00FEdCba987654321));
-    assertError(parseInteger(u8, "0xg"), error.InvalidCharacter);
 }
 
 test "parseArgs.basic" {
