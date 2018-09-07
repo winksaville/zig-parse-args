@@ -3,29 +3,8 @@ const debug = std.debug;
 const assert = debug.assert;
 const assertError = debug.assertError;
 const warn = debug.warn;
-
-var dbg_bits: [16]u64 = undefined;
-const dbg_bits_bits_per_elem = @sizeOf(u64) * 8;
-const dbg_bits_num_bits = @sizeOf(@typeOf(dbg_bits)) * dbg_bits_bits_per_elem;
-
-fn dbg(bit_offset: u64) bool {
-    if (bit_offset >= dbg_bits_num_bits) return false;
-    var elem_idx = bit_offset / dbg_bits_bits_per_elem;
-    var bit_idx: u6 = @intCast(u6, bit_offset % dbg_bits_bits_per_elem);
-    return (dbg_bits[elem_idx] & ((u64(1) << bit_idx))) != 0;
-}
-
-fn dbgBitWrite(bit_offset: u64, val: u64) void {
-    if (bit_offset >= dbg_bits_num_bits) return;
-    var elem_idx = bit_offset / dbg_bits_bits_per_elem;
-    var bit_idx: u6 = @intCast(u6, bit_offset % dbg_bits_bits_per_elem);
-    var bit_mask: u64 = u64(1) << bit_idx;
-    if (val == 0) {
-        dbg_bits[elem_idx] &= ~bit_mask;
-    } else {
-        dbg_bits[elem_idx] |= bit_mask;
-    }
-}
+const dbg = @import("dbg.zig").dbg;
+const dbgWriteBit = @import("dbg.zig").dbgWriteBit;
 
 fn toLower(ch: u8) u8 {
     return if ((ch >= 'A') and (ch <= 'Z')) ch + ('a' - 'A') else ch;
@@ -349,11 +328,9 @@ pub fn parseFloating(comptime T: type, str: []const u8) !T {
 }
 
 test "parseIntegerNumber" {
-    var prng = std.rand.DefaultPrng.init(std.os.time.timestamp());
-    
     // Set the debug bits
-    dbgBitWrite(0, prng.random.scalar(u64) & 1);
-    dbgBitWrite(1, prng.random.scalar(u64) & 1);
+    dbgWriteBit(0, 0);
+    dbgWriteBit(1, 0);
 
     if (dbg(0)) warn("\n");
     var ch: u8 = undefined;
