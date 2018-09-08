@@ -1,0 +1,3 @@
+[submodule "modules/array-u1"]
+	path = modules/array-u1
+	url = https://github.com/winksaville/zig-array-u1.git
