@@ -3,8 +3,14 @@ const debug = std.debug;
 const assert = debug.assert;
 const assertError = debug.assertError;
 const warn = debug.warn;
-const dbg = @import("dbg.zig").dbg;
-const dbgWriteBit = @import("dbg.zig").dbgWriteBit;
+
+const globals = @import("modules/globals.zig");
+const dbg_bits = globals.dbg_bits;
+const dbg_offset = globals.dbg_offset_parsers;
+
+fn dbg(bit: usize) bool {
+    return dbg_bits.r(dbg_offset+bit) == 1;
+}
 
 fn toLower(ch: u8) u8 {
     return if ((ch >= 'A') and (ch <= 'Z')) ch + ('a' - 'A') else ch;
@@ -329,8 +335,8 @@ pub fn parseFloating(comptime T: type, str: []const u8) !T {
 
 test "parseIntegerNumber" {
     // Set the debug bits
-    dbgWriteBit(0, 0);
-    dbgWriteBit(1, 0);
+    dbg_bits.w(dbg_offset+0, 0);
+    dbg_bits.w(dbg_offset+1, 0);
 
     if (dbg(0)) warn("\n");
     var ch: u8 = undefined;
