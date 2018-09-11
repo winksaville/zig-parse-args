@@ -13,6 +13,16 @@ const ArrayList = std.ArrayList;
 
 const Allocator = mem.Allocator;
 
+const globals = @import("modules/globals.zig");
+
+fn d(bit: usize) bool {
+    return globals.dbg_bits.r(globals.dbg_offset_parse_args + bit) == 1;
+}
+
+fn dbgw(bit: usize, value: usize) void {
+    globals.dbg_bits.w(globals.dbg_offset_parse_args + bit, value);
+}
+
 pub const ArgIteratorTest = struct {
     const Self = this;
 
@@ -29,14 +39,14 @@ pub const ArgIteratorTest = struct {
     }
 
     pub fn next(pSelf: *Self) ?[]const u8 {
-        //warn("ArgIteratorTest.next:+ count={} index={}\n", pSelf.count, pSelf.index);
-        //defer warn("ArgIteratorTest.next:-\n");
+        if (d(1)) warn("ArgIteratorTest.next:+ count={} index={}\n", pSelf.count, pSelf.index);
+        defer if (d(1)) warn("ArgIteratorTest.next:-\n");
 
         if (pSelf.index == pSelf.count) return null;
 
         var n = pSelf.args[pSelf.index];
         pSelf.index += 1;
-        warn("&ArgIteratorTest: &n[0]={*} '{}'\n", &n[0], n);
+        if (d(1)) warn("&ArgIteratorTest: &n[0]={*} '{}'\n", &n[0], n);
         return n;
     }
 
@@ -105,7 +115,7 @@ const MyArgIterator = struct {
                 return mem.dupe(pAllocator, u8, elem.?);
                 // TODO: Why is the 3 lines below NOT equivalent to the return above?
                 //var n = try mem.dupe(pAllocator, u8, elem.?);
-                //warn("&ArgumentIterator: &n[0]={*}\n", &n[0]);
+                //if (d(1)) warn("&ArgumentIterator: &n[0]={*}\n", &n[0]);
                 //return n;
             },
             ArgumentIterator.osAi => return pSelf.ai.osAi.next(pAllocator),
@@ -186,7 +196,7 @@ fn ArgUnion(comptime T: type) type {
 fn ParseInt(comptime T: type) type {
     return struct {
         fn parse(str: []const u8) error!T {
-            //warn("ParseInt.parse({})\n", str);
+            if (d(1)) warn("ParseInt.parse({})\n", str);
             return parseInteger(T, str);
         }
     };
@@ -195,7 +205,7 @@ fn ParseInt(comptime T: type) type {
 fn ParseFloating(comptime T: type) type {
     return struct {
         fn parse(str: []const u8) error!T {
-            warn("ParseFloating.parse({})\n", str);
+            if (d(1)) warn("ParseFloating.parse({})\n", str);
             return parseFloating(T, str);
         }
     };
@@ -203,14 +213,14 @@ fn ParseFloating(comptime T: type) type {
 
 pub fn parseStr(pAllocator: *Allocator, value_str: []const u8) ![]const u8 {
     if (value_str.len == 0) return error.WTF;
-    warn("parseStr: &value_str[0]={} &value_str={*} value_str={}\n", &value_str[0], &value_str, value_str);
+    if (d(1)) warn("parseStr: &value_str[0]={} &value_str={*} value_str={}\n", &value_str[0], &value_str, value_str);
     var str = try mem.dupe(pAllocator, u8, value_str);
-    warn("parseStr: &str[0]={} &str={*} str={}\n", &str[0], &str, str);
+    if (d(1)) warn("parseStr: &str[0]={} &str={*} str={}\n", &str[0], &str, str);
     return str;
 }
 
 fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg {
-    warn("&leader[0]={*} &raw_arg[0]={*} &sep[0]={*}\n", &leader[0], &raw_arg[0], &sep[0]);
+    if (d(0)) warn("&leader[0]={*} &raw_arg[0]={*} &sep[0]={*}\n", &leader[0], &raw_arg[0], &sep[0]);
     var parsedArg = ParsedArg {
         .leader = "",
         .lhs = "",
@@ -226,7 +236,7 @@ fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg 
     var found_sep = while (sep_idx < raw_arg.len) : (sep_idx += 1) {
                         if (mem.eql(u8, raw_arg[sep_idx..(sep_idx + sep.len)], sep[0..])) {
                             parsedArg.sep = sep;
-                            warn("&parsedArg.sep[0]={*} &sep[0]={*}\n", &parsedArg.sep[0], &sep[0]);
+                            if (d(0)) warn("&parsedArg.sep[0]={*} &sep[0]={*}\n", &parsedArg.sep[0], &sep[0]);
                             break true;
                         }
                     } else false;
@@ -237,7 +247,7 @@ fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg 
     } else {
         parsedArg.lhs = raw_arg[idx..];
     }
-    warn("&parsedArg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n",
+    if (d(0)) warn("&parsedArg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n",
         &parsedArg,
         if (parsedArg.leader.len != 0) &parsedArg.leader[0] else null,
         if (parsedArg.lhs.len != 0) &parsedArg.lhs[0] else null,
@@ -253,8 +263,8 @@ pub fn parseArgs(
     arg_proto_list: ArrayList(Argument),
 ) !ArrayList([]const u8) {
     if (!args_it.skip()) @panic("expected arg[0] to exist");
-    warn("parseArgs:+ arg_proto_list.len={}\n", arg_proto_list.len);
-    defer warn("parseArgs:-\n");
+    if (d(0)) warn("parseArgs:+ arg_proto_list.len={}\n", arg_proto_list.len);
+    defer if (d(0)) warn("parseArgs:-\n");
 
     var positionalArgs = ArrayList([]const u8).init(pAllocator);
 
@@ -264,13 +274,13 @@ pub fn parseArgs(
     var i: usize = 0;
     while (i < arg_proto_list.len) {
         var arg_proto: *Argument = &arg_proto_list.items[i];
-        warn("&arg_proto={*} name={}\n", arg_proto, arg_proto.name);
+        if (d(0)) warn("&arg_proto={*} name={}\n", arg_proto, arg_proto.name);
 
 
         if (arg_proto_map.contains(arg_proto.name)) {
             var pKV = arg_proto_map.get(arg_proto.name);
             var v = pKV.?.value;
-            warn("Duplicate arg_proto.name={} previous value was at index {}\n", arg_proto.name, i);
+            if (d(0)) warn("Duplicate arg_proto.name={} previous value was at index {}\n", arg_proto.name, i);
             return error.ArgProtoDuplicate;
         }
         _ = try arg_proto_map.put(arg_proto.name, arg_proto);
@@ -283,12 +293,12 @@ pub fn parseArgs(
     while (args_it.next(pAllocator)) |arg_or_error| {
         // raw_arg must be freed is was allocated by args_it.next(pAllocator) above!
         var raw_arg = try arg_or_error;
-        defer { warn("free: &raw_arg[0]={*} &raw_arg={*} raw_arg={}\n", &raw_arg[0], &raw_arg, raw_arg);
-                pAllocator.free(raw_arg); }
+        defer if (d(1)) { warn("free: &raw_arg[0]={*} &raw_arg={*} raw_arg={}\n", &raw_arg[0], &raw_arg, raw_arg);
+                pAllocator.free(raw_arg); };
 
-        warn("&raw_arg[0]={*} raw_arg={}\n", &raw_arg[0], raw_arg);
+        if (d(1)) warn("&raw_arg[0]={*} raw_arg={}\n", &raw_arg[0], raw_arg);
         var parsed_arg = parseArg("--", raw_arg, "=");
-        warn("&parsed_arg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n",
+        if (d(1)) warn("&parsed_arg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n",
             &parsed_arg,
             if (parsed_arg.leader.len != 0) &parsed_arg.leader[0] else null,
             if (parsed_arg.lhs.len != 0) &parsed_arg.lhs[0] else null,
@@ -302,12 +312,12 @@ pub fn parseArgs(
                     try positionalArgs.append(parsed_arg.lhs);
                     continue;
                 } else {
-                    warn("error.UnknownButEmptyNamedParameterUnknown, raw_arg={} parsed parsed_arg={}\n",
+                    if(d(1)) warn("error.UnknownButEmptyNamedParameterUnknown, raw_arg={} parsed parsed_arg={}\n",
                             raw_arg, parsed_arg);
                     return error.UnknownButEmptyNamedParameter;
                 }
             } else {
-                warn("error.UnknownOption raw_arg={} parsed parsed_arg={}\n", raw_arg, parsed_arg);
+                if(d(1)) warn("error.UnknownOption raw_arg={} parsed parsed_arg={}\n", raw_arg, parsed_arg);
                 return error.UnknownOption;
             } 
         }
@@ -352,6 +362,10 @@ pub fn parseArgs(
 }
 
 test "parseArgs.basic" {
+    // Initialize the debug bits
+    dbgw(0, 0);
+    dbgw(1, 0);
+
     warn("\n");
 
     var argList = ArrayList(Argument).init(debug.global_allocator);
