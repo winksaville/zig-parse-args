@@ -5,11 +5,13 @@ const assertError = debug.assertError;
 const warn = debug.warn;
 
 const globals = @import("modules/globals.zig");
-const dbg_bits = globals.dbg_bits;
-const dbg_offset = globals.dbg_offset_parsers;
 
 fn dbg(bit: usize) bool {
-    return dbg_bits.r(dbg_offset+bit) == 1;
+    return globals.dbg_bits.r(globals.dbg_offset_parsers + bit) == 1;
+}
+
+fn dbgw(bit: usize, value: usize) void {
+    globals.dbg_bits.w(globals.dbg_offset_parsers + bit, value);
 }
 
 fn toLower(ch: u8) u8 {
@@ -334,9 +336,9 @@ pub fn parseFloating(comptime T: type, str: []const u8) !T {
 }
 
 test "parseIntegerNumber" {
-    // Set the debug bits
-    dbg_bits.w(dbg_offset+0, 0);
-    dbg_bits.w(dbg_offset+1, 0);
+    // Initialize the debug bits
+    dbgw(0, 0);
+    dbgw(1, 0);
 
     if (dbg(0)) warn("\n");
     var ch: u8 = undefined;
