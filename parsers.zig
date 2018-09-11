@@ -6,7 +6,7 @@ const warn = debug.warn;
 
 const globals = @import("modules/globals.zig");
 
-fn dbg(bit: usize) bool {
+fn d(bit: usize) bool {
     return globals.dbg_bits.r(globals.dbg_offset_parsers + bit) == 1;
 }
 
@@ -46,7 +46,7 @@ pub fn U8Iter() type {
 
         pub fn next(pSelf: *Self) void {
             if (!pSelf.done()) pSelf.idx += 1;
-            if (dbg(0)) warn ("I: next {}\n", pSelf);
+            if (d(0)) warn ("I: next {}\n", pSelf);
         }
 
         pub fn curIdx(pSelf: *Self) usize {
@@ -99,7 +99,7 @@ pub fn U8Iter() type {
                 pSelf.next();
                 ch = pSelf.curCh();
             }
-            if (dbg(0)) warn("SkipWs:- ch='{c}':0x{x} {}\n", ch, ch, pSelf);
+            if (d(0)) warn("SkipWs:- ch='{c}':0x{x} {}\n", ch, ch, pSelf);
             return ch;
         }
 
@@ -164,8 +164,8 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
     //var ch = pIter.curChLc();
     var ch = pIter.nextChLc();
 
-    if (dbg(0)) warn("PN:+  pr={}, it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
-    defer if (dbg(0)) warn("PN:-  pr={} it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
+    if (d(0)) warn("PN:+  pr={}, it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
+    defer if (d(0)) warn("PN:-  pr={} it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
 
     var radix = radix_val;
     var value: u128 = 0;
@@ -174,11 +174,11 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
     // Handle leading +, -
     if (ch == '-') {
         ch = pIter.nextChLc();
-        if (dbg(1)) warn("PN: neg ch='{c}':0x{x}\n", ch, ch);
+        if (d(1)) warn("PN: neg ch='{c}':0x{x}\n", ch, ch);
         negative = -1;
     } else if (ch == '+') {
         ch = pIter.nextChLc();
-        if (dbg(1)) warn("PN: plus ch='{c}':0x{x}\n", ch, ch);
+        if (d(1)) warn("PN: plus ch='{c}':0x{x}\n", ch, ch);
         negative = 1;
     }
 
@@ -192,17 +192,17 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
                 'x' => { radix = 16; ch = pIter.nextChLc(); },
                 else => { radix = 10; ch = pIter.prevChLc(); },
             }
-            if (dbg(1)) warn("PN: radix={} ch='{c}':0x{x}\n", radix, ch, ch);
+            if (d(1)) warn("PN: radix={} ch='{c}':0x{x}\n", radix, ch, ch);
         } else {
             radix = 10;
-            if (dbg(1)) warn("PN: default radix={} ch='{c}':0x{x}\n", radix, ch, ch);
+            if (d(1)) warn("PN: default radix={} ch='{c}':0x{x}\n", radix, ch, ch);
         }
     }
 
     // Handle remaining digits until end of string or an invalid character
     var digits: usize = 0;
     while (ch != 0) : (ch = pIter.nextChLc()) {
-        if (dbg(1)) warn("PN: TOL value={} it={} digits={} ch='{c}':0x{x}\n", value, pIter, digits, ch, ch);
+        if (d(1)) warn("PN: TOL value={} it={} digits={} ch='{c}':0x{x}\n", value, pIter, digits, ch, ch);
         if (ch == '_') {
             continue;
         }
@@ -214,13 +214,13 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
             v = 10 + (ch - 'a');
         } else {
             // An invalid character, done
-            if (dbg(1)) warn("PN: bad ch='{c}':0x{x}\n", ch, ch);
+            if (d(1)) warn("PN: bad ch='{c}':0x{x}\n", ch, ch);
             _ = pIter.prevCh();
             break;
         }
         // An invalid character for current radix, done
         if (v >= radix) {
-            if (dbg(1)) warn("PN: v:{} >= radix:{} ch='{c}':0x{x}\n", v, radix, ch, ch);
+            if (d(1)) warn("PN: v:{} >= radix:{} ch='{c}':0x{x}\n", v, radix, ch, ch);
             _ = pIter.prevCh();
             break;
         }
@@ -229,7 +229,7 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
         value += v;
         digits += 1;
     }
-    if (dbg(1)) warn("PN: AL value={} it={} digits={}\n", value, pIter, digits);
+    if (d(1)) warn("PN: AL value={} it={} digits={}\n", value, pIter, digits);
 
     // We didn't have any digits don't update result
     if (digits > 0) {
@@ -250,8 +250,8 @@ pub fn parseIntegerNumber(comptime T: type, pIter: *U8Iter()) !T {
     var result = ParseResult(T).init();
     var ch = pIter.skipWs();
 
-    if (dbg(0)) warn("PIN:+ pr={} it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
-    defer if (dbg(0)) warn("PIN:- pr={} it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
+    if (d(0)) warn("PIN:+ pr={} it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
+    defer if (d(0)) warn("PIN:- pr={} it={} ch='{c}':0x{x}\n", result, pIter, ch, ch);
 
     result = parseNumber(T, pIter, 0);
 
@@ -268,8 +268,8 @@ pub fn parseInteger(comptime T: type, str: []const u8) !T {
 
     it.set(str, 0);
 
-    if (dbg(0)) warn("PI:+ str={}\n", str);
-    defer if (dbg(0)) warn("PI:- result={} str={}\n", result, str);
+    if (d(0)) warn("PI:+ str={}\n", str);
+    defer if (d(0)) warn("PI:- result={} str={}\n", result, str);
 
     result = try parseIntegerNumber(T, &it);
 
@@ -284,13 +284,13 @@ pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
     var ch = pIter.skipWs();
     var pr = ParseResult(T).init();
 
-    if (dbg(0)) warn("PFN:+ pr={} it={} ch='{c}':0x{x}\n", pr, pIter, ch, ch);
-    defer if (dbg(0)) warn("PFN:- pr={} it={} ch='{c}':0x{x}\n", pr, pIter, ch, ch);
+    if (d(0)) warn("PFN:+ pr={} it={} ch='{c}':0x{x}\n", pr, pIter, ch, ch);
+    defer if (d(0)) warn("PFN:- pr={} it={} ch='{c}':0x{x}\n", pr, pIter, ch, ch);
 
     // Get Tens
     var pr_tens = parseNumber(i128, pIter, 10);
     if (pr_tens.value_set) {
-        if (dbg(1)) warn("PFN: pr_tens={} it={} ch='{c}':0x{x}\n", pr_tens, pIter, pIter.curCh(), pIter.curCh());
+        if (d(1)) warn("PFN: pr_tens={} it={} ch='{c}':0x{x}\n", pr_tens, pIter, pIter.curCh(), pIter.curCh());
         var pr_fraction = ParseResult(i128).init();
         var pr_exponent = ParseResult(i128).init();
         if (pIter.curCh() == '.') {
@@ -298,21 +298,21 @@ pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
             pIter.next();
             pr_fraction = parseNumber(i128, pIter, 10);
             if (!pr_fraction.value_set) {
-                if (dbg(1)) warn("PF: no fraction\n");
+                if (d(1)) warn("PF: no fraction\n");
                 pr_fraction.set(0, pIter.idx, 0);
             }
         }
-        if (dbg(1)) warn("PFN: pr_fraction={} it={} ch='{c}':0x{x}\n", pr_fraction, pIter, pIter.curCh(), pIter.curCh());
+        if (d(1)) warn("PFN: pr_fraction={} it={} ch='{c}':0x{x}\n", pr_fraction, pIter, pIter.curCh(), pIter.curCh());
         if (pIter.curCh() == 'e') {
             // Get Exponent
             pIter.next(); // skip e
             pr_exponent = parseNumber(i128, pIter, 10);
             if (!pr_exponent.value_set) {
-                if (dbg(1)) warn("PF: no exponent\n");
+                if (d(1)) warn("PF: no exponent\n");
                 pr_exponent.set(0, pIter.idx, 0);
             }
         }
-        if (dbg(1)) warn("PFN: pr_exponent={} it={} ch='{c}':0x{x}\n", pr_exponent, pIter, pIter.curCh(), pIter.curCh());
+        if (d(1)) warn("PFN: pr_exponent={} it={} ch='{c}':0x{x}\n", pr_exponent, pIter, pIter.curCh(), pIter.curCh());
 
         var tens = @intToFloat(T, pr_tens.value);
         var fraction = @intToFloat(T, pr_fraction.value) / std.math.pow(T, 10, @intToFloat(T, pr_fraction.digits));
@@ -320,7 +320,7 @@ pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
         var value = significand * std.math.pow(T, @intToFloat(T, 10), @intToFloat(T, pr_exponent.value));
         pr.set(value, pIter.idx, pr_tens.digits + pr_fraction.digits);
 
-        if (dbg(1)) warn("PFN:-- pr.value={}\n", pr.value);
+        if (d(1)) warn("PFN:-- pr.value={}\n", pr.value);
         return pr.value;
     }
     return error.NoValue;
@@ -331,7 +331,7 @@ pub fn parseFloating(comptime T: type, str: []const u8) !T {
     it.set(str, 0);
 
     var result = try parseFloatNumber(T, &it);
-    if (dbg(0)) warn("PF:+- result={} str={}\n", result, str);
+    if (d(0)) warn("PF:+- result={} str={}\n", result, str);
     return result;
 }
 
@@ -339,8 +339,8 @@ test "parseIntegerNumber" {
     // Initialize the debug bits
     dbgw(0, 0);
     dbgw(1, 0);
+    if (d(0) or d(1)) warn("\n");
 
-    if (dbg(0)) warn("\n");
     var ch: u8 = undefined;
     var it: U8Iter() = undefined;
 
@@ -354,11 +354,11 @@ test "parseIntegerNumber" {
 
     it.set("1 2", 0);
     vU8 = try parseIntegerNumber(u8, &it);
-    if (dbg(0)) warn("vU8={} it={}\n", vU8, it);
+    if (d(0)) warn("vU8={} it={}\n", vU8, it);
     assert(vU8 == 1);
     assert(it.idx == 1);
     vU8 = try parseIntegerNumber(u8, &it);
-    if (dbg(0)) warn("vU8={} it={}\n", vU8, it);
+    if (d(0)) warn("vU8={} it={}\n", vU8, it);
     assert(vU8 == 2);
     assert(it.idx == 3);
 
@@ -467,7 +467,7 @@ pub fn floatFuzzyEql(comptime T: type, lhs: T, rhs: T, fuz: T) bool {
 }
 
 test "parseFloatNumber" {
-    if (dbg(0)) warn("\n");
+    if (d(0)) warn("\n");
     var ch: u8 = undefined;
     var it: U8Iter() = undefined;
     var vF32: f32 = undefined;
@@ -507,11 +507,11 @@ test "parseFloatNumber" {
 
     it.set("1.2 3.4", 0);
     vF32 = try parseFloatNumber(f32, &it);
-    if (dbg(0)) warn("vF32={} it={}\n", vF32, it);
+    if (d(0)) warn("vF32={} it={}\n", vF32, it);
     assert(vF32 == 1.2);
     assert(it.idx == 3);
     vF32 = try parseFloatNumber(f32, &it);
-    if (dbg(0)) warn("vF32={} it={}\n", vF32, it);
+    if (d(0)) warn("vF32={} it={}\n", vF32, it);
     assert(vF32 == 3.4);
     assert(it.idx == 7);
 }
