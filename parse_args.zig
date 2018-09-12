@@ -132,13 +132,6 @@ pub const ArgIter = struct {
     }
 };
 
-const ParsedArg = struct {
-    leader: []const u8,
-    lhs: []const u8,
-    sep: []const u8,
-    rhs: []const u8,
-};
-
 pub const ArgRec = struct {
     leader: []const u8,              /// empty if none
     name: []const u8,                /// name of arg
@@ -216,6 +209,13 @@ fn parseStr(pAllocator: *Allocator, value_str: []const u8) ![]const u8 {
     if (d(1)) warn("parseStr: &str[0]={} &str={*} str={}\n", &str[0], &str, str);
     return str;
 }
+
+const ParsedArg = struct {
+    leader: []const u8,
+    lhs: []const u8,
+    sep: []const u8,
+    rhs: []const u8,
+};
 
 fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg {
     if (d(0)) warn("&leader[0]={*} &raw_arg[0]={*} &sep[0]={*}\n", &leader[0], &raw_arg[0], &sep[0]);
