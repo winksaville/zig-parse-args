@@ -71,21 +71,21 @@ pub fn main() !void {
             ArgUnionFields.argI128 => warn("{}", arg.arg_union.argI128.value),
             ArgUnionFields.argF32 => warn("{}", arg.arg_union.argF32.value),
             ArgUnionFields.argF64 => warn("{}", arg.arg_union.argF64.value),
-            ArgUnionFields.argStr => {
-                warn("{} &value[0]={*}", arg.arg_union.argStr.value, &arg.arg_union.argStr.value[0]);
+            ArgUnionFields.argAlloced => {
+                warn("{} &value[0]={*}", arg.arg_union.argAlloced.value, &arg.arg_union.argAlloced.value[0]);
             },
         }
         warn("\n");
     }
 
-    // Free data any allocated data of ArgUnionFields.argStr
+    // Free data any allocated data of ArgUnionFields.argAlloced
     for (arg_list.toSlice()) |arg, i| {
         switch (arg.arg_union) {
-            ArgUnionFields.argStr => {
+            ArgUnionFields.argAlloced => {
                 if (arg.value_set) {
                     warn("free arg_list[{}]: name={} value_set={} arg.value={}\n",
-                        i, arg.name, arg.value_set, arg.arg_union.argStr.value);
-                    debug.global_allocator.free(arg.arg_union.argStr.value);
+                        i, arg.name, arg.value_set, arg.arg_union.argAlloced.value);
+                    debug.global_allocator.free(arg.arg_union.argAlloced.value);
                 }
             },
             else => {},

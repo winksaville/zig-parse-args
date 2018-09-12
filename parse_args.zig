@@ -11,8 +11,10 @@ const fmt = std.fmt;
 const mem = std.mem;
 const HashMap = std.HashMap;
 const ArrayList = std.ArrayList;
-
 const Allocator = mem.Allocator;
+
+const builtin = @import("builtin");
+const TypeId = builtin.TypeId;
 
 const globals = @import("modules/globals.zig");
 
@@ -157,6 +159,7 @@ pub const ArgRec = struct {
     arg_union: ArgUnionFields,       /// union
 };
 
+// ArgUnionFields should be more generic
 pub const ArgUnionFields = union(enum) {
     argU32: ArgUnion(u32),
     argI32: ArgUnion(i32),
@@ -166,13 +169,17 @@ pub const ArgUnionFields = union(enum) {
     argI128: ArgUnion(i128),
     argF32: ArgUnion(f32),
     argF64: ArgUnion(f64),
-    argStr: ArgUnion([]const u8),
+    argAlloced: ArgUnion([]const u8),
 };
 
 pub fn ArgUnion(comptime T: type) type {
     return struct {
         /// Parse the []const u8 to T
-        parser: comptime if (T == []const u8) fn(*Allocator, []const u8) error!T else fn([]const u8) error!T,
+        parser: comptime switch (TypeId(@typeInfo(T))) {
+                TypeId.Pointer, TypeId.Array, TypeId.Struct =>
+                        fn(*Allocator, []const u8) error!T,
+                else => fn([]const u8) error!T,
+        },
         value_default: T,               /// value_default copied to value if .value_default_set is true and value_set is false
         value: T,                       /// value is from command line if .value_set is true
     };
@@ -330,7 +337,7 @@ pub fn parseArgs(
                 ArgUnionFields.argI128 => v.arg_union.argI128.value = try v.arg_union.argI128.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argF32 => v.arg_union.argF32.value = try v.arg_union.argF32.parser(parsed_arg.rhs[0..]),
                 ArgUnionFields.argF64 => v.arg_union.argF64.value = try v.arg_union.argF64.parser(parsed_arg.rhs[0..]),
-                ArgUnionFields.argStr => v.arg_union.argStr.value = try v.arg_union.argStr.parser(pAllocator, parsed_arg.rhs[0..]),
+                ArgUnionFields.argAlloced => v.arg_union.argAlloced.value = try v.arg_union.argAlloced.parser(pAllocator, parsed_arg.rhs[0..]),
             }
             v.value_set = true; // set value_set as it's initialised via an argument
         } else {
@@ -345,7 +352,7 @@ pub fn parseArgs(
                     ArgUnionFields.argI128 => v.arg_union.argI128.value = v.arg_union.argI128.value_default,
                     ArgUnionFields.argF32 => v.arg_union.argF32.value = v.arg_union.argF32.value_default,
                     ArgUnionFields.argF64 => v.arg_union.argF64.value = v.arg_union.argF64.value_default,
-                    ArgUnionFields.argStr => v.arg_union.argStr.value = v.arg_union.argStr.value_default,
+                    ArgUnionFields.argAlloced => v.arg_union.argAlloced.value = v.arg_union.argAlloced.value_default,
                 }
                 v.value_set = false; // Since we used the default we'll clear value_set
             }
@@ -481,7 +488,7 @@ test "parseArgs.basic" {
         .value_default_set = false,
         .value_set = false,
         .arg_union = ArgUnionFields {
-            .argStr = ArgUnion([]const u8) {
+            .argAlloced = ArgUnion([]const u8) {
                 .parser = ParseAllocated([]const u8).parse,
                 .value_default = "",
                 .value = "",
@@ -519,8 +526,8 @@ test "parseArgs.basic" {
             ArgUnionFields.argI128 => warn("{}", arg.arg_union.argI128.value),
             ArgUnionFields.argF32 => warn("{}", arg.arg_union.argF32.value),
             ArgUnionFields.argF64 => warn("{}", arg.arg_union.argF64.value),
-            ArgUnionFields.argStr => {
-                warn("{} &value[0]={*}", arg.arg_union.argStr.value, &arg.arg_union.argStr.value[0]);
+            ArgUnionFields.argAlloced => {
+                warn("{} &value[0]={*}", arg.arg_union.argAlloced.value, &arg.arg_union.argAlloced.value[0]);
             },
         }
         warn("\n");
@@ -535,16 +542,16 @@ test "parseArgs.basic" {
     assert(argList.items[5].arg_union.argI128.value == -1281);
     assert(argList.items[6].arg_union.argF32.value == 32.32);
     assert(argList.items[7].arg_union.argF64.value == 64.64);
-    assert(mem.eql(u8, argList.items[8].arg_union.argStr.value, "wink"));
+    assert(mem.eql(u8, argList.items[8].arg_union.argAlloced.value, "wink"));
 
-    // Free data any allocated data of ArgUnionFields.argStr
+    // Free data any allocated data of ArgUnionFields.argAlloced
     for (argList.toSlice()) |arg, i| {
         switch (arg.arg_union) {
-            ArgUnionFields.argStr => {
+            ArgUnionFields.argAlloced => {
                 if (arg.value_set) {
                     warn("free argList[{}]: name={} value_set={} arg.value={}\n",
-                        i, arg.name, arg.value_set, arg.arg_union.argStr.value);
-                    debug.global_allocator.free(arg.arg_union.argStr.value);
+                        i, arg.name, arg.value_set, arg.arg_union.argAlloced.value);
+                    debug.global_allocator.free(arg.arg_union.argAlloced.value);
                 }
             },
             else => {},
