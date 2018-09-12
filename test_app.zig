@@ -12,7 +12,7 @@ const ArgUnionFields = parse_args.ArgUnionFields;
 const ArgUnion = parse_args.ArgUnion;
 const parseArgs = parse_args.parseArgs;
 const ParseInt = parse_args.ParseInt;
-const ParseFloating = parse_args.ParseFloating;
+const ParseFloat = parse_args.ParseFloat;
 const parseStr = parse_args.parseStr;
 
 const globals = @import("modules/globals.zig");

@@ -193,10 +193,10 @@ pub fn ParseInt(comptime T: type) type {
     };
 }
 
-pub fn ParseFloating(comptime T: type) type {
+pub fn ParseFloat(comptime T: type) type {
     return struct {
         fn parse(str: []const u8) error!T {
-            if (d(1)) warn("ParseFloating.parse({})\n", str);
+            if (d(1)) warn("ParseFloat.parse({})\n", str);
             return parseFloat(T, str);
         }
     };
@@ -459,7 +459,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argF32 = ArgUnion(f32) {
-                .parser = ParseFloating(f32).parse,
+                .parser = ParseFloat(f32).parse,
                 .value_default = -32.32,
                 .value = 0,
             },
@@ -473,7 +473,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argF64 = ArgUnion(f64) {
-                .parser = ParseFloating(f64).parse,
+                .parser = ParseFloat(f64).parse,
                 .value_default = -64.64,
                 .value = 0,
             },
