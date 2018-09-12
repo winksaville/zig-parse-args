@@ -1,5 +1,5 @@
 const parseInteger = @import("parsers.zig").parseInteger;
-const parseFloating = @import("parsers.zig").parseFloating;
+const parseFloat = @import("parsers.zig").parseFloat;
 
 const std = @import("std");
 const debug = std.debug;
@@ -197,7 +197,7 @@ pub fn ParseFloating(comptime T: type) type {
     return struct {
         fn parse(str: []const u8) error!T {
             if (d(1)) warn("ParseFloating.parse({})\n", str);
-            return parseFloating(T, str);
+            return parseFloat(T, str);
         }
     };
 }

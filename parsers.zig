@@ -326,7 +326,7 @@ pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
     return error.NoValue;
 }
 
-pub fn parseFloating(comptime T: type, str: []const u8) !T {
+pub fn parseFloat(comptime T: type, str: []const u8) !T {
     var it: U8Iter() = undefined;
     it.set(str, 0);
 
@@ -517,16 +517,16 @@ test "parseFloatNumber" {
 }
 
 test "parseFloat" {
-    assert((try parseFloating(f32, "0")) == 0);
-    assert((try parseFloating(f32, "-1")) == -1);
-    assert((try parseFloating(f32, "1.")) == 1.0);
-    assert((try parseFloating(f32, "1e0")) == 1);
-    assert((try parseFloating(f32, "1e1")) == 10);
-    assert((try parseFloating(f32, "1e-1")) == 0.1);
-    assert((try parseFloating(f32, "0.1")) == 0.1);
-    assert((try parseFloating(f32, "-1.")) == -1.0);
-    assert((try parseFloating(f32, "-2.1")) == -2.1);
-    assert((try parseFloating(f32, "-1.2")) == -1.2);
-    assert(floatFuzzyEql(f32, try parseFloating(f32,  "1.2e2"),    1.2e2 , 0.00001));
-    assert(floatFuzzyEql(f32, try parseFloating(f32, "-1.2e-2"),  -1.2e-2, 0.00001));
+    assert((try parseFloat(f32, "0")) == 0);
+    assert((try parseFloat(f32, "-1")) == -1);
+    assert((try parseFloat(f32, "1.")) == 1.0);
+    assert((try parseFloat(f32, "1e0")) == 1);
+    assert((try parseFloat(f32, "1e1")) == 10);
+    assert((try parseFloat(f32, "1e-1")) == 0.1);
+    assert((try parseFloat(f32, "0.1")) == 0.1);
+    assert((try parseFloat(f32, "-1.")) == -1.0);
+    assert((try parseFloat(f32, "-2.1")) == -2.1);
+    assert((try parseFloat(f32, "-1.2")) == -1.2);
+    assert(floatFuzzyEql(f32, try parseFloat(f32,  "1.2e2"),    1.2e2 , 0.00001));
+    assert(floatFuzzyEql(f32, try parseFloat(f32, "-1.2e-2"),  -1.2e-2, 0.00001));
 }
