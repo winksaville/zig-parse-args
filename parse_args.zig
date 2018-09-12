@@ -58,20 +58,20 @@ pub const ArgIteratorTest = struct {
     }
 };
 
-const ArgumentIterator = union(enum) {
-    testAi: ArgIteratorTest,
-    osAi: std.os.ArgIterator,
-};
-
 pub const MyArgIterator = struct {
     const Self = this;
 
-    ai: ArgumentIterator,
+    const ArgIteratorEnum = union(enum) {
+        testAi: ArgIteratorTest,
+        osAi: std.os.ArgIterator,
+    };
+
+    ai: ArgIteratorEnum,
 
 
     pub fn initOsAi() Self {
         return Self {
-            .ai = ArgumentIterator {
+            .ai = ArgIteratorEnum {
                 .osAi = std.os.ArgIterator.init(),
             },
         };
@@ -79,7 +79,7 @@ pub const MyArgIterator = struct {
 
     pub fn initTestAi(args: []const []const u8) Self {
         return Self {
-            .ai = ArgumentIterator {
+            .ai = ArgIteratorEnum {
                 .testAi = ArgIteratorTest.init(args),
             },
         };
@@ -108,24 +108,24 @@ pub const MyArgIterator = struct {
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(![]const u8) {      // <<< Why doesn't this work
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?![]const u8 {        // <<< Why doesn't this work
         switch (pSelf.ai) {
-            ArgumentIterator.testAi => {
+            ArgIteratorEnum.testAi => {
                 var elem = pSelf.ai.testAi.next();
                 if (elem == null) return null;
                 return mem.dupe(pAllocator, u8, elem.?);
                 //var n = mem.dupe(pAllocator, u8, elem.?) catch |err| return (error![]const u8)(err);
-                //if (d(1)) warn("&ArgumentIterator: &n[0]={*}\n", &n[0]);
+                //if (d(1)) warn("&ArgIteratorEnum: &n[0]={*}\n", &n[0]);
                 //return (error![]const u8)(n);
             },
-            ArgumentIterator.osAi => return (?error![]const u8)(pSelf.ai.osAi.next(pAllocator)),
+            ArgIteratorEnum.osAi => return (?error![]const u8)(pSelf.ai.osAi.next(pAllocator)),
         }
     }
 
     pub fn skip(pSelf: *Self) bool {
         switch (pSelf.ai) {
-            ArgumentIterator.testAi => {
+            ArgIteratorEnum.testAi => {
                 return pSelf.ai.testAi.skip();
             },
-            ArgumentIterator.osAi => {
+            ArgIteratorEnum.osAi => {
                 return pSelf.ai.osAi.skip();
             },
         }
