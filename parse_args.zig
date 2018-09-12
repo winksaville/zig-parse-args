@@ -58,29 +58,29 @@ pub const ArgIteratorTest = struct {
     }
 };
 
-pub const MyArgIterator = struct {
+pub const ArgIter = struct {
     const Self = this;
 
     const ArgIteratorEnum = union(enum) {
-        testAi: ArgIteratorTest,
-        osAi: std.os.ArgIterator,
+        testArgIter: ArgIteratorTest,
+        osArgIter: std.os.ArgIterator,
     };
 
     ai: ArgIteratorEnum,
 
 
-    pub fn initOsAi() Self {
+    pub fn initOsArgIter() Self {
         return Self {
             .ai = ArgIteratorEnum {
-                .osAi = std.os.ArgIterator.init(),
+                .osArgIter = std.os.ArgIterator.init(),
             },
         };
     }
 
-    pub fn initTestAi(args: []const []const u8) Self {
+    pub fn initTestArgIter(args: []const []const u8) Self {
         return Self {
             .ai = ArgIteratorEnum {
-                .testAi = ArgIteratorTest.init(args),
+                .testArgIter = ArgIteratorTest.init(args),
             },
         };
     }
@@ -89,7 +89,7 @@ pub const MyArgIterator = struct {
     //
     // TODO: See if this analysis is true and see if we can fix it?
     //
-    // This is needed because osAi.next needs an allocator.
+    // This is needed because osArgIter.next needs an allocator.
     // More specifically, ArgIteratorWindows needs an allocator
     // where as ArgIteratorPosix does not. The reason
     // ArgIteratorWindows needs the allocator is that
@@ -108,25 +108,25 @@ pub const MyArgIterator = struct {
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(![]const u8) {      // <<< Why doesn't this work
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?![]const u8 {        // <<< Why doesn't this work
         switch (pSelf.ai) {
-            ArgIteratorEnum.testAi => {
-                var elem = pSelf.ai.testAi.next();
+            ArgIteratorEnum.testArgIter => {
+                var elem = pSelf.ai.testArgIter.next();
                 if (elem == null) return null;
                 return mem.dupe(pAllocator, u8, elem.?);
                 //var n = mem.dupe(pAllocator, u8, elem.?) catch |err| return (error![]const u8)(err);
                 //if (d(1)) warn("&ArgIteratorEnum: &n[0]={*}\n", &n[0]);
                 //return (error![]const u8)(n);
             },
-            ArgIteratorEnum.osAi => return (?error![]const u8)(pSelf.ai.osAi.next(pAllocator)),
+            ArgIteratorEnum.osArgIter => return (?error![]const u8)(pSelf.ai.osArgIter.next(pAllocator)),
         }
     }
 
     pub fn skip(pSelf: *Self) bool {
         switch (pSelf.ai) {
-            ArgIteratorEnum.testAi => {
-                return pSelf.ai.testAi.skip();
+            ArgIteratorEnum.testArgIter => {
+                return pSelf.ai.testArgIter.skip();
             },
-            ArgIteratorEnum.osAi => {
-                return pSelf.ai.osAi.skip();
+            ArgIteratorEnum.osArgIter => {
+                return pSelf.ai.osArgIter.skip();
             },
         }
     }
@@ -257,7 +257,7 @@ fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg 
 
 pub fn parseArgs(
     pAllocator: *Allocator,
-    args_it: *MyArgIterator,
+    args_it: *ArgIter,
     arg_proto_list: ArrayList(Argument),
 ) !ArrayList([]const u8) {
     if (!args_it.skip()) @panic("expected arg[0] to exist");
@@ -494,7 +494,7 @@ test "parseArgs.basic" {
         },
     });
 
-    var arg_iter = MyArgIterator.initTestAi([]const []const u8 {
+    var arg_iter = ArgIter.initTestArgIter([]const []const u8 {
         "file.exe", // This is skipped
         "hello",
         "countU32=321",

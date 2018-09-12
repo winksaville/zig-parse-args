@@ -6,7 +6,7 @@ const warn = debug.warn;
 const ArrayList = std.ArrayList;
 
 const parse_args = @import("parse_args.zig");
-const MyArgIterator = parse_args.MyArgIterator;
+const ArgIter = parse_args.ArgIter;
 const Argument = parse_args.Argument;
 const ArgUnionFields = parse_args.ArgUnionFields;
 const ArgUnion = parse_args.ArgUnion;
@@ -49,7 +49,7 @@ pub fn main() !void {
     });
 
     // Initialize the os Argument Iterator
-    var arg_iter = MyArgIterator.initOsAi();
+    var arg_iter = ArgIter.initOsArgIter();
 
     // Parse the arguments
     var positional_args = try parseArgs(debug.global_allocator, &arg_iter, arg_list);
