@@ -63,17 +63,16 @@ const ArgumentIterator = union(enum) {
     osAi: std.os.ArgIterator,
 };
 
-const MyArgIterator = struct {
+pub const MyArgIterator = struct {
     const Self = this;
 
     ai: ArgumentIterator,
 
 
-    pub fn initOsAi(pSelf: *Self) void {
-        pSelf.ai(ArgumentIterator.osAi).init();
+    pub fn initOsAi() Self {
         return Self {
             .ai = ArgumentIterator {
-                .osAi = std.os.ArgIterator.init(args),
+                .osAi = std.os.ArgIterator.init(),
             },
         };
     }
@@ -113,12 +112,11 @@ const MyArgIterator = struct {
                 var elem = pSelf.ai.testAi.next();
                 if (elem == null) return null;
                 return mem.dupe(pAllocator, u8, elem.?);
-                // TODO: Why is the 3 lines below NOT equivalent to the return above?
-                //var n = try mem.dupe(pAllocator, u8, elem.?);
+                //var n = mem.dupe(pAllocator, u8, elem.?) catch |err| return (error![]const u8)(err);
                 //if (d(1)) warn("&ArgumentIterator: &n[0]={*}\n", &n[0]);
-                //return n;
+                //return (error![]const u8)(n);
             },
-            ArgumentIterator.osAi => return pSelf.ai.osAi.next(pAllocator),
+            ArgumentIterator.osAi => return (?error![]const u8)(pSelf.ai.osAi.next(pAllocator)),
         }
     }
 
@@ -141,7 +139,7 @@ const ParsedArg = struct {
     rhs: []const u8,
 };
 
-const Argument = struct {
+pub const Argument = struct {
     leader: []const u8,              /// empty if none
     name: []const u8,                /// name of arg
 
@@ -172,7 +170,7 @@ const Argument = struct {
     arg_union: ArgUnionFields,       /// union
 };
 
-const ArgUnionFields = union(enum) {
+pub const ArgUnionFields = union(enum) {
     argU32: ArgUnion(u32),
     argI32: ArgUnion(i32),
     argU64: ArgUnion(u64),
@@ -184,7 +182,7 @@ const ArgUnionFields = union(enum) {
     argStr: ArgUnion([]const u8),
 };
 
-fn ArgUnion(comptime T: type) type {
+pub fn ArgUnion(comptime T: type) type {
     return struct {
         /// Parse the []const u8 to T
         parser: comptime if (T != []const u8) fn([]const u8) error!T else fn(*Allocator, []const u8) error!T,
@@ -193,7 +191,7 @@ fn ArgUnion(comptime T: type) type {
     };
 }
 
-fn ParseInt(comptime T: type) type {
+pub fn ParseInt(comptime T: type) type {
     return struct {
         fn parse(str: []const u8) error!T {
             if (d(1)) warn("ParseInt.parse({})\n", str);
@@ -202,7 +200,7 @@ fn ParseInt(comptime T: type) type {
     };
 }
 
-fn ParseFloating(comptime T: type) type {
+pub fn ParseFloating(comptime T: type) type {
     return struct {
         fn parse(str: []const u8) error!T {
             if (d(1)) warn("ParseFloating.parse({})\n", str);
@@ -211,7 +209,7 @@ fn ParseFloating(comptime T: type) type {
     };
 }
 
-pub fn parseStr(pAllocator: *Allocator, value_str: []const u8) ![]const u8 {
+fn parseStr(pAllocator: *Allocator, value_str: []const u8) ![]const u8 {
     if (value_str.len == 0) return error.WTF;
     if (d(1)) warn("parseStr: &value_str[0]={} &value_str={*} value_str={}\n", &value_str[0], &value_str, value_str);
     var str = try mem.dupe(pAllocator, u8, value_str);
