@@ -3,6 +3,8 @@ const debug = std.debug;
 const assert = debug.assert;
 const assertError = debug.assertError;
 const warn = debug.warn;
+const mem = std.mem;
+const Allocator = mem.Allocator;
 
 const globals = @import("modules/globals.zig");
 
@@ -333,6 +335,14 @@ pub fn parseFloat(comptime T: type, str: []const u8) !T {
     var result = try parseFloatNumber(T, &it);
     if (d(0)) warn("PF:+- result={} str={}\n", result, str);
     return result;
+}
+
+pub fn parseStr(pAllocator: *Allocator, str: []const u8) ![]const u8 {
+    if (str.len == 0) return error.WTF;
+    if (d(1)) warn("parseArray: &str[0]={} &str={*} str={}\n", &str[0], &str, str);
+    var result = try mem.dupe(pAllocator, u8, str);
+    if (d(1)) warn("parseArray: &result[0]={} &result={*} result={}\n", &result[0], &result, result);
+    return str;
 }
 
 test "parseIntegerNumber" {

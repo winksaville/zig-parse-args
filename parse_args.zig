@@ -1,5 +1,6 @@
 const parseInteger = @import("parsers.zig").parseInteger;
 const parseFloat = @import("parsers.zig").parseFloat;
+const parseStr = @import("parsers.zig").parseStr;
 
 const std = @import("std");
 const debug = std.debug;
@@ -96,13 +97,6 @@ pub const ArgIter = struct {
     // the command line is parsed during next(). I believe
     // if the parsing was done by the bootstrap code
     // the allocator would not be necessary.
-    //
-    // This leads to a requirement that we need mem.dupe here
-    // and further more means we need one in parseStr which
-    // leads to compilications on how to free them. The solution
-    // I devised was to "defer free" the string retruned here
-    // and then on cleanup loop through the argList and free
-    // any ArgRec.arg_union.argStr when we terminate.
     pub fn next(pSelf: *Self, pAllocator: *Allocator) ?error![]const u8 {     // <<< This works
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(error![]const u8) { // <<< This works
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(![]const u8) {      // <<< Why doesn't this work
@@ -178,7 +172,7 @@ pub const ArgUnionFields = union(enum) {
 pub fn ArgUnion(comptime T: type) type {
     return struct {
         /// Parse the []const u8 to T
-        parser: comptime if (T != []const u8) fn([]const u8) error!T else fn(*Allocator, []const u8) error!T,
+        parser: comptime if (T == []const u8) fn(*Allocator, []const u8) error!T else fn([]const u8) error!T,
         value_default: T,               /// value_default copied to value if .value_default_set is true and value_set is false
         value: T,                       /// value is from command line if .value_set is true
     };
@@ -202,12 +196,13 @@ pub fn ParseFloat(comptime T: type) type {
     };
 }
 
-fn parseStr(pAllocator: *Allocator, value_str: []const u8) ![]const u8 {
-    if (value_str.len == 0) return error.WTF;
-    if (d(1)) warn("parseStr: &value_str[0]={} &value_str={*} value_str={}\n", &value_str[0], &value_str, value_str);
-    var str = try mem.dupe(pAllocator, u8, value_str);
-    if (d(1)) warn("parseStr: &str[0]={} &str={*} str={}\n", &str[0], &str, str);
-    return str;
+pub fn ParseAllocated(comptime T: type) type {
+    return struct {
+        fn parse(pAllocator: *Allocator, str: []const u8) error!T {
+            if (d(1)) warn("ParseAllocated.parse({})\n", str);
+            return parseStr(pAllocator, str);
+        }
+    };
 }
 
 const ParsedArg = struct {
@@ -487,7 +482,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argStr = ArgUnion([]const u8) {
-                .parser = parseStr,
+                .parser = ParseAllocated([]const u8).parse,
                 .value_default = "",
                 .value = "",
             },
