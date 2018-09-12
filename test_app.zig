@@ -7,7 +7,7 @@ const ArrayList = std.ArrayList;
 
 const parse_args = @import("parse_args.zig");
 const ArgIter = parse_args.ArgIter;
-const Argument = parse_args.Argument;
+const ArgRec = parse_args.ArgRec;
 const ArgUnionFields = parse_args.ArgUnionFields;
 const ArgUnion = parse_args.ArgUnion;
 const parseArgs = parse_args.parseArgs;
@@ -32,9 +32,9 @@ pub fn main() !void {
 
     warn("\n");
 
-    var arg_list = ArrayList(Argument).init(debug.global_allocator);
+    var arg_list = ArrayList(ArgRec).init(debug.global_allocator);
 
-    try arg_list.append(Argument {
+    try arg_list.append(ArgRec {
         .leader = "",
         .name = "count",
         .value_default_set = true,
@@ -48,7 +48,7 @@ pub fn main() !void {
         },
     });
 
-    // Initialize the os Argument Iterator
+    // Initialize the os ArgRec Iterator
     var arg_iter = ArgIter.initOsArgIter();
 
     // Parse the arguments

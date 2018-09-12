@@ -102,7 +102,7 @@ pub const ArgIter = struct {
     // leads to compilications on how to free them. The solution
     // I devised was to "defer free" the string retruned here
     // and then on cleanup loop through the argList and free
-    // any Argument.arg_union.argStr when we terminate.
+    // any ArgRec.arg_union.argStr when we terminate.
     pub fn next(pSelf: *Self, pAllocator: *Allocator) ?error![]const u8 {     // <<< This works
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(error![]const u8) { // <<< This works
     //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(![]const u8) {      // <<< Why doesn't this work
@@ -139,7 +139,7 @@ const ParsedArg = struct {
     rhs: []const u8,
 };
 
-pub const Argument = struct {
+pub const ArgRec = struct {
     leader: []const u8,              /// empty if none
     name: []const u8,                /// name of arg
 
@@ -151,7 +151,7 @@ pub const Argument = struct {
     //
     // If value_set == false and value_default_set == true
     //      ArgUnion.value == ArgUnion.value_default
-    //      ArgUnion.value_default as defined when Argument was created
+    //      ArgUnion.value_default as defined when ArgRec was created
     //
     // If value_set == true and value_default_set == false
     //      ArgUnion.value == value from command line
@@ -159,7 +159,7 @@ pub const Argument = struct {
     //
     // If value_set == true and value_default_set == false
     //      ArgUnion.value == value from command line
-    //      ArgUnion.value_default as defined when Argument was created
+    //      ArgUnion.value_default as defined when ArgRec was created
     //
     // Thus if the user initializes value_default and sets value_default_set to true
     // then value will always have a "valid" value and value_set will be true if
@@ -258,7 +258,7 @@ fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg 
 pub fn parseArgs(
     pAllocator: *Allocator,
     args_it: *ArgIter,
-    arg_proto_list: ArrayList(Argument),
+    arg_proto_list: ArrayList(ArgRec),
 ) !ArrayList([]const u8) {
     if (!args_it.skip()) @panic("expected arg[0] to exist");
     if (d(0)) warn("parseArgs:+ arg_proto_list.len={}\n", arg_proto_list.len);
@@ -267,11 +267,11 @@ pub fn parseArgs(
     var positionalArgs = ArrayList([]const u8).init(pAllocator);
 
     // Add the arg_prototypes to a hash map
-    const ArgProtoMap = HashMap([]const u8, *Argument, mem.hash_slice_u8, mem.eql_slice_u8);
+    const ArgProtoMap = HashMap([]const u8, *ArgRec, mem.hash_slice_u8, mem.eql_slice_u8);
     var arg_proto_map = ArgProtoMap.init(pAllocator);
     var i: usize = 0;
     while (i < arg_proto_list.len) {
-        var arg_proto: *Argument = &arg_proto_list.items[i];
+        var arg_proto: *ArgRec = &arg_proto_list.items[i];
         if (d(0)) warn("&arg_proto={*} name={}\n", arg_proto, arg_proto.name);
 
 
@@ -366,9 +366,9 @@ test "parseArgs.basic" {
 
     warn("\n");
 
-    var argList = ArrayList(Argument).init(debug.global_allocator);
+    var argList = ArrayList(ArgRec).init(debug.global_allocator);
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "countU32",
         .value_default_set = true,
@@ -382,7 +382,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "countI32",
         .value_default_set = true,
@@ -396,7 +396,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "countU64",
         .value_default_set = true,
@@ -410,7 +410,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "countI64",
         .value_default_set = true,
@@ -424,7 +424,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "countU128",
         .value_default_set = true,
@@ -438,7 +438,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "countI128",
         .value_default_set = true,
@@ -452,7 +452,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "valueF32",
         .value_default_set = true,
@@ -466,7 +466,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "valueF64",
         .value_default_set = true,
@@ -480,7 +480,7 @@ test "parseArgs.basic" {
         },
     });
 
-    try argList.append(Argument {
+    try argList.append(ArgRec {
         .leader = "",
         .name = "first_name",
         .value_default_set = false,
