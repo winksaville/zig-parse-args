@@ -5,6 +5,8 @@ const assertError = debug.assertError;
 const warn = debug.warn;
 const mem = std.mem;
 const Allocator = mem.Allocator;
+const builtin = @import("builtin");
+const TypeId = builtin.TypeId;
 
 const globals = @import("modules/globals.zig");
 
@@ -264,24 +266,6 @@ pub fn parseIntegerNumber(comptime T: type, pIter: *U8Iter()) !T {
     return result.value;
 }
 
-pub fn parseInteger(comptime T: type, str: []const u8) !T {
-    var result: T = undefined;
-    var it: U8Iter() = undefined;
-
-    it.set(str, 0);
-
-    if (d(0)) warn("PI:+ str={}\n", str);
-    defer if (d(0)) warn("PI:- result={} str={}\n", result, str);
-
-    result = try parseIntegerNumber(T, &it);
-
-    // Skip any trailing WS and if we didn't conusme the entire string it's an error
-    _ = it.skipWs();
-    if (it.idx < str.len) return error.NoValue;
-
-    return result;
-}
-
 pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
     var ch = pIter.skipWs();
     var pr = ParseResult(T).init();
@@ -328,21 +312,42 @@ pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
     return error.NoValue;
 }
 
-pub fn parseFloat(comptime T: type, str: []const u8) !T {
-    var it: U8Iter() = undefined;
-    it.set(str, 0);
+pub fn ParseNumber(comptime T: type) type {
+    return struct {
+        const Self = this;
 
-    var result = try parseFloatNumber(T, &it);
-    if (d(0)) warn("PF:+- result={} str={}\n", result, str);
-    return result;
+        fn parse(str: [] const u8) !T {
+            if (d(0)) warn("ParseNumber:+ str={}\n", str);
+
+            var it: U8Iter() = undefined;
+            it.set(str, 0);
+
+            var result = try switch (TypeId(@typeInfo(T))) {
+                TypeId.Int => parseIntegerNumber(T, &it),
+                TypeId.Float => parseFloatNumber(T, &it),
+                else => @compileError("Expecting Int or Float only"),
+            };
+
+            // Skip any trailing WS and if we didn't conusme the entire string it's an error
+            _ = it.skipWs();
+            if (it.idx < str.len) return error.NoValue;
+
+            if (d(0)) warn("ParseNumber:- str={} result={}\n", str, result);
+            return result;
+        }
+    };
 }
 
-pub fn parseStr(pAllocator: *Allocator, str: []const u8) ![]const u8 {
-    if (str.len == 0) return error.WTF;
-    if (d(1)) warn("parseArray: &str[0]={} &str={*} str={}\n", &str[0], &str, str);
-    var result = try mem.dupe(pAllocator, u8, str);
-    if (d(1)) warn("parseArray: &result[0]={} &result={*} result={}\n", &result[0], &result, result);
-    return str;
+pub fn ParseAllocated(comptime T: type) type {
+    return struct {
+        fn parse(pAllocator: *Allocator, str: []const u8) error!T {
+            if (d(0)) warn("ParseAllocated:+ str={}\n", str);
+            if (str.len == 0) return error.WTF;
+            var result = try mem.dupe(pAllocator, u8, str);
+            if (d(0)) warn("parseAllocated:- str={} &result={*}\n", str, &result);
+            return str;
+        }
+    };
 }
 
 test "parseIntegerNumber" {
@@ -391,89 +396,6 @@ test "parseIntegerNumber" {
     vU8 = try parseIntegerNumber(u8, &it);
     assert(vU8 == 1);
     assert(it.idx == 1);
-}
-
-test "parseInteger" {
-    assertError(parseInteger(u8, ""), error.NoValue);
-
-    assert((try parseInteger(u8, "0")) == 0);
-    assert((try parseInteger(u8, " 1")) == 1);
-    assert((try parseInteger(u8, " 2 ")) == 2);
-    assertError(parseInteger(u8, " 2d"), error.NoValue);
-
-    const s = " \t 123\t";
-    var slice = s[0..];
-    assert((try parseInteger(u8, slice)) == 123);
-
-    assert((try parseInteger(i8, "-1")) == -1);
-    assert((try parseInteger(i8, "1")) == 1);
-    assert((try parseInteger(i8, "+1")) == 1);
-
-    assert((try parseInteger(u8, "0b0")) == 0);
-    assert((try parseInteger(u8, "0b1")) == 1);
-    assert((try parseInteger(u8, "0b1010_0101")) == 0xA5);
-    assertError(parseInteger(u8, "0b2"), error.NoValue);
-
-    assert((try parseInteger(u8, "0o0")) == 0);
-    assert((try parseInteger(u8, "0o1")) == 1);
-    assert((try parseInteger(u8, "0o7")) == 7);
-    assert((try parseInteger(u8, "0o77")) == 0x3f);
-    assert((try parseInteger(u32, "0o111_777")) == 0b1001001111111111);
-    assertError(parseInteger(u8, "0b8"), error.NoValue);
-
-    assert((try parseInteger(u8, "0d0")) == 0);
-    assert((try parseInteger(u8, "0d1")) == 1);
-    assert((try parseInteger(u8, "-0d1")) == 255);
-    assert((try parseInteger(i8, "-0d1")) == -1);
-    assert((try parseInteger(i8, "+0d1")) == 1);
-    assert((try parseInteger(u8, "0d9")) == 9);
-    assert((try parseInteger(u8, "0")) == 0);
-    assert((try parseInteger(u8, "-1")) == 255);
-    assert((try parseInteger(u8, "9")) == 9);
-    assert((try parseInteger(u8, "127")) == 0x7F);
-    assert((try parseInteger(u8, "-127")) == 0x81);
-    assert((try parseInteger(u8, "-128")) == 0x80);
-    assert((try parseInteger(u8, "255")) == 255);
-    assert((try parseInteger(u8, "256")) == 0);
-    assert((try parseInteger(u64, "123_456_789")) == 123456789);
-
-    assert((try parseInteger(u8, "0x0")) == 0x0);
-    assert((try parseInteger(u8, "0x1")) == 0x1);
-    assert((try parseInteger(u8, "0x9")) == 0x9);
-    assert((try parseInteger(u8, "0xa")) == 0xa);
-    assert((try parseInteger(u8, "0xf")) == 0xf);
-
-    assert((try parseInteger(i128, "-170141183460469231731687303715884105728")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000000)));
-    assert((try parseInteger(i128, "-170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000001)));
-    assert((try parseInteger(i128, "-1")) == @bitCast(i128, @intCast(u128, 0xffffffffffffffffffffffffffffffff)));
-    assert((try parseInteger(i128, "0"))  == @bitCast(i128, @intCast(u128, 0x00000000000000000000000000000000)));
-    assert((try parseInteger(i128, "170141183460469231731687303715884105726")) == @bitCast(i128, @intCast(u128, 0x7ffffffffffffffffffffffffffffffe)));
-    assert((try parseInteger(i128, "170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x7fffffffffffffffffffffffffffffff)));
-
-    assert((try parseInteger(u128, "0"))  == 0);
-    assert((try parseInteger(u128, "1"))  == 1);
-    assert((try parseInteger(u128, "340282366920938463463374607431768211454")) == 0xfffffffffffffffffffffffffffffffe);
-    assert((try parseInteger(u128, "340282366920938463463374607431768211455")) == 0xffffffffffffffffffffffffffffffff);
-
-    assert((try parseInteger(u128, "0x1234_5678_9ABc_Def0_0FEd_Cba9_8765_4321")) == 0x123456789ABcDef00FEdCba987654321);
-    assertError(parseInteger(u8, "0xg"), error.NoValue);
-}
-
-pub fn floatFuzzyEql(comptime T: type, lhs: T, rhs: T, fuz: T) bool {
-    // Determine which is larger and smallerj
-    // then add the fuz to smaller and subract from larger
-    // If smaller >= larger then they are equal
-    var smaller: T = undefined;
-    var larger: T  = undefined;
-    if (lhs > rhs) {
-        larger = lhs - fuz;
-        smaller = rhs + fuz;
-    } else {
-        larger = rhs - fuz;
-        smaller = lhs + fuz;
-    }
-    //warn("smaller={} larger={}\n", smaller, larger);
-    return smaller >= larger;
 }
 
 test "parseFloatNumber" {
@@ -526,17 +448,104 @@ test "parseFloatNumber" {
     assert(it.idx == 7);
 }
 
-test "parseFloat" {
-    assert((try parseFloat(f32, "0")) == 0);
-    assert((try parseFloat(f32, "-1")) == -1);
-    assert((try parseFloat(f32, "1.")) == 1.0);
-    assert((try parseFloat(f32, "1e0")) == 1);
-    assert((try parseFloat(f32, "1e1")) == 10);
-    assert((try parseFloat(f32, "1e-1")) == 0.1);
-    assert((try parseFloat(f32, "0.1")) == 0.1);
-    assert((try parseFloat(f32, "-1.")) == -1.0);
-    assert((try parseFloat(f32, "-2.1")) == -2.1);
-    assert((try parseFloat(f32, "-1.2")) == -1.2);
-    assert(floatFuzzyEql(f32, try parseFloat(f32,  "1.2e2"),    1.2e2 , 0.00001));
-    assert(floatFuzzyEql(f32, try parseFloat(f32, "-1.2e-2"),  -1.2e-2, 0.00001));
+test "ParseNumber" {
+    assertError(ParseNumber(u8).parse(""), error.NoValue);
+
+    assert((try ParseNumber(u8).parse("0")) == 0);
+    assert((try ParseNumber(u8).parse(" 1")) == 1);
+    assert((try ParseNumber(u8).parse(" 2 ")) == 2);
+    assertError(ParseNumber(u8).parse(" 2d"), error.NoValue);
+
+    const s = " \t 123\t";
+    var slice = s[0..];
+    assert((try ParseNumber(u8).parse(slice)) == 123);
+
+    assert((try ParseNumber(i8).parse("-1")) == -1);
+    assert((try ParseNumber(i8).parse("1")) == 1);
+    assert((try ParseNumber(i8).parse("+1")) == 1);
+
+    assert((try ParseNumber(u8).parse("0b0")) == 0);
+    assert((try ParseNumber(u8).parse("0b1")) == 1);
+    assert((try ParseNumber(u8).parse("0b1010_0101")) == 0xA5);
+    assertError(ParseNumber(u8).parse("0b2"), error.NoValue);
+
+    assert((try ParseNumber(u8).parse("0o0")) == 0);
+    assert((try ParseNumber(u8).parse("0o1")) == 1);
+    assert((try ParseNumber(u8).parse("0o7")) == 7);
+    assert((try ParseNumber(u8).parse("0o77")) == 0x3f);
+    assert((try ParseNumber(u32).parse("0o111_777")) == 0b1001001111111111);
+    assertError(ParseNumber(u8).parse("0b8"), error.NoValue);
+
+    assert((try ParseNumber(u8).parse("0d0")) == 0);
+    assert((try ParseNumber(u8).parse("0d1")) == 1);
+    assert((try ParseNumber(u8).parse("-0d1")) == 255);
+    assert((try ParseNumber(i8).parse("-0d1")) == -1);
+    assert((try ParseNumber(i8).parse("+0d1")) == 1);
+    assert((try ParseNumber(u8).parse("0d9")) == 9);
+    assert((try ParseNumber(u8).parse("0")) == 0);
+    assert((try ParseNumber(u8).parse("-1")) == 255);
+    assert((try ParseNumber(u8).parse("9")) == 9);
+    assert((try ParseNumber(u8).parse("127")) == 0x7F);
+    assert((try ParseNumber(u8).parse("-127")) == 0x81);
+    assert((try ParseNumber(u8).parse("-128")) == 0x80);
+    assert((try ParseNumber(u8).parse("255")) == 255);
+    assert((try ParseNumber(u8).parse("256")) == 0);
+    assert((try ParseNumber(u64).parse("123_456_789")) == 123456789);
+
+    assert((try ParseNumber(u8).parse("0x0")) == 0x0);
+    assert((try ParseNumber(u8).parse("0x1")) == 0x1);
+    assert((try ParseNumber(u8).parse("0x9")) == 0x9);
+    assert((try ParseNumber(u8).parse("0xa")) == 0xa);
+    assert((try ParseNumber(u8).parse("0xf")) == 0xf);
+
+    assert((try ParseNumber(i128).parse("-170141183460469231731687303715884105728")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000000)));
+    assert((try ParseNumber(i128).parse("-170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000001)));
+    assert((try ParseNumber(i128).parse("-1")) == @bitCast(i128, @intCast(u128, 0xffffffffffffffffffffffffffffffff)));
+    assert((try ParseNumber(i128).parse("0"))  == @bitCast(i128, @intCast(u128, 0x00000000000000000000000000000000)));
+    assert((try ParseNumber(i128).parse("170141183460469231731687303715884105726")) == @bitCast(i128, @intCast(u128, 0x7ffffffffffffffffffffffffffffffe)));
+    assert((try ParseNumber(i128).parse("170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x7fffffffffffffffffffffffffffffff)));
+
+    assert((try ParseNumber(u128).parse("0"))  == 0);
+    assert((try ParseNumber(u128).parse("1"))  == 1);
+    assert((try ParseNumber(u128).parse("340282366920938463463374607431768211454")) == 0xfffffffffffffffffffffffffffffffe);
+    assert((try ParseNumber(u128).parse("340282366920938463463374607431768211455")) == 0xffffffffffffffffffffffffffffffff);
+
+    assert((try ParseNumber(u128).parse("0x1234_5678_9ABc_Def0_0FEd_Cba9_8765_4321")) == 0x123456789ABcDef00FEdCba987654321);
+    assertError(ParseNumber(u8).parse("0xg"), error.NoValue);
+
+    assert((try ParseNumber(f32).parse("0")) == 0);
+    assert((try ParseNumber(f32).parse("-1")) == -1);
+    assert((try ParseNumber(f32).parse("1.")) == 1.0);
+    assert((try ParseNumber(f32).parse("1e0")) == 1);
+    assert((try ParseNumber(f32).parse("1e1")) == 10);
+    assert((try ParseNumber(f32).parse("1e-1")) == 0.1);
+    assert((try ParseNumber(f64).parse("0.1")) == 0.1);
+    assert((try ParseNumber(f64).parse("-1.")) == -1.0);
+    assert((try ParseNumber(f64).parse("-2.1")) == -2.1);
+    assert((try ParseNumber(f64).parse("-1.2")) == -1.2);
+    assert(floatFuzzyEql(f64, try ParseNumber(f64).parse("1.2e2"),    1.2e2 , 0.00001));
+    assert(floatFuzzyEql(f64, try ParseNumber(f64).parse("-1.2e-2"),  -1.2e-2, 0.00001));
+}
+
+pub fn floatFuzzyEql(comptime T: type, lhs: T, rhs: T, fuz: T) bool {
+    // Determine which is larger and smallerj
+    // then add the fuz to smaller and subract from larger
+    // If smaller >= larger then they are equal
+    var smaller: T = undefined;
+    var larger: T  = undefined;
+    if (lhs > rhs) {
+        larger = lhs - fuz;
+        smaller = rhs + fuz;
+    } else {
+        larger = rhs - fuz;
+        smaller = lhs + fuz;
+    }
+    //warn("smaller={} larger={}\n", smaller, larger);
+    return smaller >= larger;
+}
+
+test "ParseAllocated" {
+    var s = try ParseAllocated([]const u8).parse(debug.global_allocator, "hi");
+    defer debug.global_allocator.free(s);
+    assert(mem.eql(u8, s, "hi"));
 }

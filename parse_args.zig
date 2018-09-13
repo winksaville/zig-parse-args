@@ -1,6 +1,6 @@
-const parseInteger = @import("parsers.zig").parseInteger;
-const parseFloat = @import("parsers.zig").parseFloat;
-const parseStr = @import("parsers.zig").parseStr;
+const parsers = @import("parsers.zig");
+const ParseNumber = parsers.ParseNumber;
+const ParseAllocated = parsers.ParseAllocated;
 
 const std = @import("std");
 const debug = std.debug;
@@ -185,33 +185,6 @@ pub fn ArgUnion(comptime T: type) type {
     };
 }
 
-pub fn ParseInt(comptime T: type) type {
-    return struct {
-        fn parse(str: []const u8) error!T {
-            if (d(1)) warn("ParseInt.parse({})\n", str);
-            return parseInteger(T, str);
-        }
-    };
-}
-
-pub fn ParseFloat(comptime T: type) type {
-    return struct {
-        fn parse(str: []const u8) error!T {
-            if (d(1)) warn("ParseFloat.parse({})\n", str);
-            return parseFloat(T, str);
-        }
-    };
-}
-
-pub fn ParseAllocated(comptime T: type) type {
-    return struct {
-        fn parse(pAllocator: *Allocator, str: []const u8) error!T {
-            if (d(1)) warn("ParseAllocated.parse({})\n", str);
-            return parseStr(pAllocator, str);
-        }
-    };
-}
-
 const ParsedArg = struct {
     leader: []const u8,
     lhs: []const u8,
@@ -377,7 +350,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argU32 = ArgUnion(u32) {
-                .parser = ParseInt(u32).parse,
+                .parser = ParseNumber(u32).parse,
                 .value_default = 32,
                 .value = 0,
             },
@@ -391,7 +364,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argI32 = ArgUnion(i32) {
-                .parser = ParseInt(i32).parse,
+                .parser = ParseNumber(i32).parse,
                 .value_default = -32,
                 .value = 0,
             },
@@ -405,7 +378,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argU64 = ArgUnion(u64) {
-                .parser = ParseInt(u64).parse,
+                .parser = ParseNumber(u64).parse,
                 .value_default = 64,
                 .value = 0,
             },
@@ -419,7 +392,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argI64 = ArgUnion(i64) {
-                .parser = ParseInt(i64).parse,
+                .parser = ParseNumber(i64).parse,
                 .value_default = -64,
                 .value = 0,
             },
@@ -433,7 +406,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argU128 = ArgUnion(u128) {
-                .parser = ParseInt(u128).parse,
+                .parser = ParseNumber(u128).parse,
                 .value_default = 128,
                 .value = 0,
             },
@@ -447,7 +420,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argI128 = ArgUnion(i128) {
-                .parser = ParseInt(i128).parse,
+                .parser = ParseNumber(i128).parse,
                 .value_default = -128,
                 .value = 0,
             },
@@ -461,7 +434,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argF32 = ArgUnion(f32) {
-                .parser = ParseFloat(f32).parse,
+                .parser = ParseNumber(f32).parse,
                 .value_default = -32.32,
                 .value = 0,
             },
@@ -475,7 +448,7 @@ test "parseArgs.basic" {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argF64 = ArgUnion(f64) {
-                .parser = ParseFloat(f64).parse,
+                .parser = ParseNumber(f64).parse,
                 .value_default = -64.64,
                 .value = 0,
             },
