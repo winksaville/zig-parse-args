@@ -1,14 +1,24 @@
 # Zig parse arguments
 
-Parse an ArrayList([]const u8) arguments
+Parse the parameters passed on the command line
+and available in osArgIter: std.os.ArgIterator and
+well as my own ArgIteratorTest. Both are avaiable via
+the wrapper ArgIter:
 
-TODO: Support negative numbers.
+    ArgIter.initOsArgIter() Self
+    ArgIter.initTestArgIter(args: []const []const u8) Self
 
-TODO: Support operating system paramets.
+Besides the iterator with the command line arguments you
+need to create an ArrayList(ArgRec) and initialize the list
+with a "prototype" for each possible command line argument.
 
-TODO: Support floating point numbers.
+See the tests in parse_args.zig and test_app.zig for details,
+I'm not going to add doc's here yet, because I don't like the
+API. I need to make the improvments mentioned below.
 
-TODO: Allow addition of different "types" at compile time and
+# Improvements:
+
+Allow addition of different "types" at compile time and
 maybe runtime. Right now a tagged union ArgUnionFields is used
 to manage different types of data that can be parsed. For new
 "types" to be added ArgUnionFields and the appropriate code paths need
@@ -23,5 +33,5 @@ $ zig test parse_args.zig
 ## Clean
 Remove `zig-cache/` directory
 ```bash
-$ rm -rf ./zig-cache/
+$ rm -rf test ./zig-cache/
 ```
