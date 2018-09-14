@@ -27,7 +27,7 @@ fn dbgw(bit: usize, value: usize) void {
 }
 
 pub const ArgIteratorTest = struct {
-    const Self = this;
+    const Self = @This();
 
     index: usize,
     count: usize,
@@ -62,7 +62,7 @@ pub const ArgIteratorTest = struct {
 };
 
 pub const ArgIter = struct {
-    const Self = this;
+    const Self = @This();
 
     const ArgIteratorEnum = union(enum) {
         testArgIter: ArgIteratorTest,

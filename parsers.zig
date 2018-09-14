@@ -24,7 +24,7 @@ fn toLower(ch: u8) u8 {
 
 pub fn U8Iter() type {
     return struct {
-        const Self = this;
+        const Self = @This();
 
         initial_idx: usize,
         idx: usize,
@@ -126,7 +126,7 @@ pub fn U8Iter() type {
 
 pub fn ParseResult(comptime T: type) type {
     return struct {
-        const Self = this;
+        const Self = @This();
 
         last_idx: usize,
         value: T,
@@ -314,7 +314,7 @@ pub fn parseFloatNumber(comptime T: type, pIter: *U8Iter()) !T {
 
 pub fn ParseNumber(comptime T: type) type {
     return struct {
-        const Self = this;
+        const Self = @This();
 
         fn parse(str: [] const u8) !T {
             if (d(0)) warn("ParseNumber:+ str={}\n", str);
