@@ -11,9 +11,9 @@ const ArgRec = parse_args.ArgRec;
 const ArgUnionFields = parse_args.ArgUnionFields;
 const ArgUnion = parse_args.ArgUnion;
 const parseArgs = parse_args.parseArgs;
-const ParseInt = parse_args.ParseInt;
-const ParseFloat = parse_args.ParseFloat;
-const parseStr = parse_args.parseStr;
+
+const parsers = @import("parsers.zig");
+const ParseNumber = parsers.ParseNumber;
 
 const globals = @import("modules/globals.zig");
 
@@ -41,7 +41,7 @@ pub fn main() !void {
         .value_set = false,
         .arg_union = ArgUnionFields {
             .argU32 = ArgUnion(u32) {
-                .parser = ParseInt(u32).parse,
+                .parser = ParseNumber(u32).parse,
                 .value_default = 32,
                 .value = 0,
             },
