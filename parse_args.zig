@@ -158,34 +158,29 @@ pub const ArgRec = struct {
 
     arg_union: ArgUnionFields,       /// union
 
+    fn initNamed(
+        comptime T: type,
+        name: []const u8,
+        default: T
+    ) ArgRec {
+        return initFlag(T, "", name, default);
+    }
+
     fn initFlag(
         comptime T: type,
-        pArgRec: *ArgRec,
         leader: []const u8,
         name: []const u8,
         default: T
-    ) void {
-        pArgRec.leader = leader;
-        pArgRec.name = name;
-        pArgRec.value_default_set = true;
-        pArgRec.value_set = false;
-        pArgRec.value_default = default;
-    }
-
-    fn initNamed(
-        comptime T: type,
-        pArgRec: *ArgRec,
-        name: []const u8,
-        default: T
-    ) void {
-        pArgRec.leader = "";
-        pArgRec.name = name;
-        pArgRec.value_default_set = true;
-        pArgRec.value_set = false;
+    ) ArgRec {
+        var v: ArgRec = undefined;
+        v.leader = leader;
+        v.name = name;
+        v.value_default_set = true;
+        v.value_set = false;
         switch (T) {
             u32 => {
-                if (d(1)) warn("initNamed: u32\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: u32\n");
+                v.arg_union = ArgUnionFields {
                     .argU32 = ArgUnion(u32) {
                         .value_default = default,
                         .value = default,
@@ -194,8 +189,8 @@ pub const ArgRec = struct {
                 };
             },
             i32 => {
-                if (d(1)) warn("initNamed: i32\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: i32\n");
+                v.arg_union = ArgUnionFields {
                     .argI32 = ArgUnion(i32) {
                         .value_default = default,
                         .value = default,
@@ -204,8 +199,8 @@ pub const ArgRec = struct {
                 };
             },
             u64 => {
-                if (d(1)) warn("initNamed: u64\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: u64\n");
+                v.arg_union = ArgUnionFields {
                     .argU64 = ArgUnion(u64) {
                         .value_default = default,
                         .value = default,
@@ -214,8 +209,8 @@ pub const ArgRec = struct {
                 };
             },
             i64 => {
-                if (d(1)) warn("initNamed: i64\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: i64\n");
+                v.arg_union = ArgUnionFields {
                     .argI64 = ArgUnion(i64) {
                         .value_default = default,
                         .value = default,
@@ -224,8 +219,8 @@ pub const ArgRec = struct {
                 };
             },
             u128 => {
-                if (d(1)) warn("initNamed: u128\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: u128\n");
+                v.arg_union = ArgUnionFields {
                     .argU128 = ArgUnion(u128) {
                         .value_default = default,
                         .value = default,
@@ -234,8 +229,8 @@ pub const ArgRec = struct {
                 };
             },
             i128 => {
-                if (d(1)) warn("initNamed: i128\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: i128\n");
+                v.arg_union = ArgUnionFields {
                     .argI128 = ArgUnion(i128) {
                         .value_default = default,
                         .value = default,
@@ -244,8 +239,8 @@ pub const ArgRec = struct {
                 };
             },
             f32 => {
-                if (d(1)) warn("initNamed: f32\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: f32\n");
+                v.arg_union = ArgUnionFields {
                     .argF32 = ArgUnion(f32) {
                         .value_default = default,
                         .value = default,
@@ -254,8 +249,8 @@ pub const ArgRec = struct {
                 };
             },
             f64 => {
-                if (d(1)) warn("initNamed: f64\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: f64\n");
+                v.arg_union = ArgUnionFields {
                     .argF64 = ArgUnion(f64) {
                         .value_default = default,
                         .value = default,
@@ -264,8 +259,8 @@ pub const ArgRec = struct {
                 };
             },
             []const u8 => {
-                if (d(1)) warn("initNamed: []const u8\n");
-                pArgRec.arg_union = ArgUnionFields {
+                if (d(1)) warn("initFlag: []const u8\n");
+                v.arg_union = ArgUnionFields {
                     .argAlloced = ArgUnion([]const u8) {
                         .value_default = default,
                         .value = default,
@@ -275,6 +270,7 @@ pub const ArgRec = struct {
             },
             else => unreachable,
         }
+        return v;
     }
 
 };
@@ -458,55 +454,29 @@ pub fn parseArgs(
 
 test "parseArgs.basic" {
     // Initialize the debug bits
-    dbgw(0, 1);
-    dbgw(1, 1);
+    dbgw(0, 0);
+    dbgw(1, 0);
 
     warn("\n");
 
+    // Create the list of options
     var argList = ArrayList(ArgRec).init(debug.global_allocator);
+    try argList.append(ArgRec.initNamed(u32, "countU32", 32));
+    try argList.append(ArgRec.initFlag(i32, "--", "countI32", 32));
+    try argList.append(ArgRec.initNamed(u64, "countU64", 64));
+    try argList.append(ArgRec.initNamed(i64, "countI64", -64));
+    try argList.append(ArgRec.initNamed(u128, "countU128", 128));
+    try argList.append(ArgRec.initNamed(i128, "countI128", -128));
+    try argList.append(ArgRec.initNamed(f32, "valueF32", -32.32));
+    try argList.append(ArgRec.initNamed(f64, "valueF64", -64.64));
+    try argList.append(ArgRec.initNamed([]const u8, "first_name", "ken"));
 
-    var ar1: ArgRec = undefined;
-    ArgRec.initNamed(u32, &ar1, "countU32", 32);
-    try argList.append(ar1);
-
-    var ar2: ArgRec = undefined;
-    ArgRec.initNamed(i32, &ar2, "countI32", -32);
-    try argList.append(ar2);
-
-    var ar3: ArgRec = undefined;
-    ArgRec.initNamed(u64, &ar3, "countU64", 64);
-    try argList.append(ar3);
-
-    var ar4: ArgRec = undefined;
-    ArgRec.initNamed(i64, &ar4, "countI64", -64);
-    try argList.append(ar4);
-
-    var ar5: ArgRec = undefined;
-    ArgRec.initNamed(u128, &ar5, "countU128", 128);
-    try argList.append(ar5);
-
-    var ar6: ArgRec = undefined;
-    ArgRec.initNamed(i128, &ar6, "countI128", -128);
-    try argList.append(ar6);
-
-    var ar7: ArgRec = undefined;
-    ArgRec.initNamed(f32, &ar7, "valueF32", -32.32);
-    try argList.append(ar7);
-
-    var ar8: ArgRec = undefined;
-    ArgRec.initNamed(f64, &ar8, "valueF64", -64.64);
-    try argList.append(ar8);
-
-
-    var arA: ArgRec = undefined;
-    ArgRec.initNamed([]const u8, &arA, "first_name", "ken");
-    try argList.append(arA);
-
+    // Create arguments that we will parse
     var arg_iter = ArgIter.initTestArgIter([]const []const u8 {
-        "file.exe", // This is skipped
+        "file.exe", // The first argument is the "executable" and is skipped
         "hello",
         "countU32=321",
-        "countI32=-321",
+        "--countI32=-321",
         "countU64=641",
         "countI64=-641",
         "countU128=123_456_789",
@@ -517,10 +487,15 @@ test "parseArgs.basic" {
         "world",
     });
 
+    // Parse the arguments
     var positionalArgs = try parseArgs(debug.global_allocator, &arg_iter, argList);
+
+    // Display positional arguments
     for (positionalArgs.toSlice()) |arg, i| {
         warn("positionalArgs[{}]={}\n", i, arg);
     }
+
+    // Display the options
     for (argList.toSlice()) |arg, i| {
         warn("argList[{}]: name={} value_set={} arg.value=", i, arg.name, arg.value_set);
         switch (arg.arg_union) {
@@ -539,7 +514,7 @@ test "parseArgs.basic" {
         warn("\n");
     }
 
-    // Assert we have expected values
+    // Assert we have the expected values
     assert(argList.items[0].arg_union.argU32.value == 321);
     assert(argList.items[1].arg_union.argI32.value == -321);
     assert(argList.items[2].arg_union.argU64.value == 641);
