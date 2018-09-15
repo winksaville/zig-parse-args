@@ -129,8 +129,8 @@ pub const ArgIter = struct {
 };
 
 pub const ArgRec = struct {
-    leader: []const u8,              /// empty if none
-    name: []const u8,                /// name of arg
+    leader: []const u8,                   /// empty if none
+    name: []const u8,               /// name of arg
 
     // Upon exit from parseArg the following holds:
     //
@@ -157,6 +157,126 @@ pub const ArgRec = struct {
     value_set: bool,                 /// true if parseArgs set the value from command line
 
     arg_union: ArgUnionFields,       /// union
+
+    fn initFlag(
+        comptime T: type,
+        pArgRec: *ArgRec,
+        leader: []const u8,
+        name: []const u8,
+        default: T
+    ) void {
+        pArgRec.leader = leader;
+        pArgRec.name = name;
+        pArgRec.value_default_set = true;
+        pArgRec.value_set = false;
+        pArgRec.value_default = default;
+    }
+
+    fn initNamed(
+        comptime T: type,
+        pArgRec: *ArgRec,
+        name: []const u8,
+        default: T
+    ) void {
+        pArgRec.leader = "";
+        pArgRec.name = name;
+        pArgRec.value_default_set = true;
+        pArgRec.value_set = false;
+        switch (T) {
+            u32 => {
+                if (d(1)) warn("initNamed: u32\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argU32 = ArgUnion(u32) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(u32).parse,
+                    },
+                };
+            },
+            i32 => {
+                if (d(1)) warn("initNamed: i32\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argI32 = ArgUnion(i32) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(i32).parse,
+                    },
+                };
+            },
+            u64 => {
+                if (d(1)) warn("initNamed: u64\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argU64 = ArgUnion(u64) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(u64).parse,
+                    },
+                };
+            },
+            i64 => {
+                if (d(1)) warn("initNamed: i64\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argI64 = ArgUnion(i64) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(i64).parse,
+                    },
+                };
+            },
+            u128 => {
+                if (d(1)) warn("initNamed: u128\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argU128 = ArgUnion(u128) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(u128).parse,
+                    },
+                };
+            },
+            i128 => {
+                if (d(1)) warn("initNamed: i128\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argI128 = ArgUnion(i128) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(i128).parse,
+                    },
+                };
+            },
+            f32 => {
+                if (d(1)) warn("initNamed: f32\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argF32 = ArgUnion(f32) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(f32).parse,
+                    },
+                };
+            },
+            f64 => {
+                if (d(1)) warn("initNamed: f64\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argF64 = ArgUnion(f64) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseNumber(f64).parse,
+                    },
+                };
+            },
+            []const u8 => {
+                if (d(1)) warn("initNamed: []const u8\n");
+                pArgRec.arg_union = ArgUnionFields {
+                    .argAlloced = ArgUnion([]const u8) {
+                        .value_default = default,
+                        .value = default,
+                        .parser = ParseAllocated([]const u8).parse,
+                    },
+                };
+            },
+            else => unreachable,
+        }
+    }
+
 };
 
 // ArgUnionFields should be more generic
@@ -174,6 +294,8 @@ pub const ArgUnionFields = union(enum) {
 
 pub fn ArgUnion(comptime T: type) type {
     return struct {
+        const Self = This();
+
         /// Parse the []const u8 to T
         parser: comptime switch (TypeId(@typeInfo(T))) {
                 TypeId.Pointer, TypeId.Array, TypeId.Struct =>
@@ -336,138 +458,49 @@ pub fn parseArgs(
 
 test "parseArgs.basic" {
     // Initialize the debug bits
-    dbgw(0, 0);
-    dbgw(1, 0);
+    dbgw(0, 1);
+    dbgw(1, 1);
 
     warn("\n");
 
     var argList = ArrayList(ArgRec).init(debug.global_allocator);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "countU32",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argU32 = ArgUnion(u32) {
-                .parser = ParseNumber(u32).parse,
-                .value_default = 32,
-                .value = 0,
-            },
-        },
-    });
+    var ar1: ArgRec = undefined;
+    ArgRec.initNamed(u32, &ar1, "countU32", 32);
+    try argList.append(ar1);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "countI32",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argI32 = ArgUnion(i32) {
-                .parser = ParseNumber(i32).parse,
-                .value_default = -32,
-                .value = 0,
-            },
-        },
-    });
+    var ar2: ArgRec = undefined;
+    ArgRec.initNamed(i32, &ar2, "countI32", -32);
+    try argList.append(ar2);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "countU64",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argU64 = ArgUnion(u64) {
-                .parser = ParseNumber(u64).parse,
-                .value_default = 64,
-                .value = 0,
-            },
-        },
-    });
+    var ar3: ArgRec = undefined;
+    ArgRec.initNamed(u64, &ar3, "countU64", 64);
+    try argList.append(ar3);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "countI64",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argI64 = ArgUnion(i64) {
-                .parser = ParseNumber(i64).parse,
-                .value_default = -64,
-                .value = 0,
-            },
-        },
-    });
+    var ar4: ArgRec = undefined;
+    ArgRec.initNamed(i64, &ar4, "countI64", -64);
+    try argList.append(ar4);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "countU128",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argU128 = ArgUnion(u128) {
-                .parser = ParseNumber(u128).parse,
-                .value_default = 128,
-                .value = 0,
-            },
-        },
-    });
+    var ar5: ArgRec = undefined;
+    ArgRec.initNamed(u128, &ar5, "countU128", 128);
+    try argList.append(ar5);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "countI128",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argI128 = ArgUnion(i128) {
-                .parser = ParseNumber(i128).parse,
-                .value_default = -128,
-                .value = 0,
-            },
-        },
-    });
+    var ar6: ArgRec = undefined;
+    ArgRec.initNamed(i128, &ar6, "countI128", -128);
+    try argList.append(ar6);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "valueF32",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argF32 = ArgUnion(f32) {
-                .parser = ParseNumber(f32).parse,
-                .value_default = -32.32,
-                .value = 0,
-            },
-        },
-    });
+    var ar7: ArgRec = undefined;
+    ArgRec.initNamed(f32, &ar7, "valueF32", -32.32);
+    try argList.append(ar7);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "valueF64",
-        .value_default_set = true,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argF64 = ArgUnion(f64) {
-                .parser = ParseNumber(f64).parse,
-                .value_default = -64.64,
-                .value = 0,
-            },
-        },
-    });
+    var ar8: ArgRec = undefined;
+    ArgRec.initNamed(f64, &ar8, "valueF64", -64.64);
+    try argList.append(ar8);
 
-    try argList.append(ArgRec {
-        .leader = "",
-        .name = "first_name",
-        .value_default_set = false,
-        .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argAlloced = ArgUnion([]const u8) {
-                .parser = ParseAllocated([]const u8).parse,
-                .value_default = "",
-                .value = "",
-            },
-        },
-    });
+
+    var arA: ArgRec = undefined;
+    ArgRec.initNamed([]const u8, &arA, "first_name", "ken");
+    try argList.append(arA);
 
     var arg_iter = ArgIter.initTestArgIter([]const []const u8 {
         "file.exe", // This is skipped
@@ -476,9 +509,9 @@ test "parseArgs.basic" {
         "countI32=-321",
         "countU64=641",
         "countI64=-641",
-        "countU128=0x1234_5678_9ABC_DEF0",
-        "countI128=-1281",
-        "valueF32=32.32",
+        "countU128=123_456_789",
+        "countI128=-1_281",
+        "valueF32=1_232.321_021",
         "valueF64=64.64",
         "first_name=wink",
         "world",
@@ -495,7 +528,7 @@ test "parseArgs.basic" {
             ArgUnionFields.argI32 => warn("{}", arg.arg_union.argI32.value),
             ArgUnionFields.argU64 => warn("{}", arg.arg_union.argU64.value),
             ArgUnionFields.argI64 => warn("{}", arg.arg_union.argI64.value),
-            ArgUnionFields.argU128 => warn("0x{x}", arg.arg_union.argU128.value),
+            ArgUnionFields.argU128 => warn("{}", arg.arg_union.argU128.value),
             ArgUnionFields.argI128 => warn("{}", arg.arg_union.argI128.value),
             ArgUnionFields.argF32 => warn("{}", arg.arg_union.argF32.value),
             ArgUnionFields.argF64 => warn("{}", arg.arg_union.argF64.value),
@@ -511,9 +544,9 @@ test "parseArgs.basic" {
     assert(argList.items[1].arg_union.argI32.value == -321);
     assert(argList.items[2].arg_union.argU64.value == 641);
     assert(argList.items[3].arg_union.argI64.value == -641);
-    assert(argList.items[4].arg_union.argU128.value == 0x123456789ABCDEF0);
+    assert(argList.items[4].arg_union.argU128.value == 123456789);
     assert(argList.items[5].arg_union.argI128.value == -1281);
-    assert(argList.items[6].arg_union.argF32.value == 32.32);
+    assert(argList.items[6].arg_union.argF32.value == 1232.321021);
     assert(argList.items[7].arg_union.argF64.value == 64.64);
     assert(mem.eql(u8, argList.items[8].arg_union.argAlloced.value, "wink"));
 
