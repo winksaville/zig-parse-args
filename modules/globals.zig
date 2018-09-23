@@ -6,4 +6,3 @@ pub const dbg_offset_parsers = 16;
 
 // Array of dbg_bits
 pub var debug_bits = ArrayU1(32).init();
-pub const dbg_bits = &debug_bits;

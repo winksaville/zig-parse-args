@@ -17,13 +17,14 @@ const builtin = @import("builtin");
 const TypeId = builtin.TypeId;
 
 const globals = @import("modules/globals.zig");
+const pDb = &globals.debug_bits;
 
 fn d(bit: usize) bool {
-    return globals.dbg_bits.r(globals.dbg_offset_parse_args + bit) == 1;
+    return pDb.r(globals.dbg_offset_parse_args + bit) == 1;
 }
 
 fn dbgw(bit: usize, value: usize) void {
-    globals.dbg_bits.w(globals.dbg_offset_parse_args + bit, value);
+    pDb.w(globals.dbg_offset_parse_args + bit, value);
 }
 
 pub const ArgIteratorTest = struct {
