@@ -29,17 +29,17 @@ pub fn U8Iter() type {
 
         initial_idx: usize,
         idx: usize,
-        str: [] const u8,
+        str: []const u8,
 
-        pub fn init(str: [] const u8, initial_idx: usize) Self {
-            return Self {
+        pub fn init(str: []const u8, initial_idx: usize) Self {
+            return Self{
                 .initial_idx = initial_idx,
                 .idx = initial_idx,
                 .str = str,
             };
         }
 
-        pub fn set(pSelf: *Self, str: [] const u8, initial_idx: usize) void {
+        pub fn set(pSelf: *Self, str: []const u8, initial_idx: usize) void {
             pSelf.initial_idx = initial_idx;
             pSelf.idx = initial_idx;
             pSelf.str = str;
@@ -51,7 +51,7 @@ pub fn U8Iter() type {
 
         pub fn next(pSelf: *Self) void {
             if (!pSelf.done()) pSelf.idx += 1;
-            if (d(0)) warn ("I: next {}\n", pSelf);
+            if (d(0)) warn("I: next {}\n", pSelf);
         }
 
         pub fn curIdx(pSelf: *Self) usize {
@@ -136,7 +136,7 @@ pub fn ParseResult(comptime T: type) type {
 
         pub fn init() Self {
             //warn("PR: init\n");
-            return Self {
+            return Self{
                 .last_idx = 0,
                 .value = 0,
                 .value_set = false,
@@ -191,11 +191,26 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
     if (radix == 0) {
         if ((ch == '0') and !pIter.done()) {
             switch (pIter.nextChLc()) {
-                'b' => { radix = 2; ch = pIter.nextChLc(); },
-                'o' => { radix = 8; ch = pIter.nextChLc(); },
-                'd' => { radix = 10; ch = pIter.nextChLc(); },
-                'x' => { radix = 16; ch = pIter.nextChLc(); },
-                else => { radix = 10; ch = pIter.prevChLc(); },
+                'b' => {
+                    radix = 2;
+                    ch = pIter.nextChLc();
+                },
+                'o' => {
+                    radix = 8;
+                    ch = pIter.nextChLc();
+                },
+                'd' => {
+                    radix = 10;
+                    ch = pIter.nextChLc();
+                },
+                'x' => {
+                    radix = 16;
+                    ch = pIter.nextChLc();
+                },
+                else => {
+                    radix = 10;
+                    ch = pIter.prevChLc();
+                },
             }
             if (d(1)) warn("PN: radix={} ch='{c}':0x{x}\n", radix, ch, ch);
         } else {
@@ -317,7 +332,7 @@ pub fn ParseNumber(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        fn parse(str: [] const u8) !T {
+        fn parse(str: []const u8) !T {
             if (d(0)) warn("ParseNumber:+ str={}\n", str);
 
             var it: U8Iter() = undefined;
@@ -502,12 +517,12 @@ test "ParseNumber" {
     assert((try ParseNumber(i128).parse("-170141183460469231731687303715884105728")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000000)));
     assert((try ParseNumber(i128).parse("-170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x80000000000000000000000000000001)));
     assert((try ParseNumber(i128).parse("-1")) == @bitCast(i128, @intCast(u128, 0xffffffffffffffffffffffffffffffff)));
-    assert((try ParseNumber(i128).parse("0"))  == @bitCast(i128, @intCast(u128, 0x00000000000000000000000000000000)));
+    assert((try ParseNumber(i128).parse("0")) == @bitCast(i128, @intCast(u128, 0x00000000000000000000000000000000)));
     assert((try ParseNumber(i128).parse("170141183460469231731687303715884105726")) == @bitCast(i128, @intCast(u128, 0x7ffffffffffffffffffffffffffffffe)));
     assert((try ParseNumber(i128).parse("170141183460469231731687303715884105727")) == @bitCast(i128, @intCast(u128, 0x7fffffffffffffffffffffffffffffff)));
 
-    assert((try ParseNumber(u128).parse("0"))  == 0);
-    assert((try ParseNumber(u128).parse("1"))  == 1);
+    assert((try ParseNumber(u128).parse("0")) == 0);
+    assert((try ParseNumber(u128).parse("1")) == 1);
     assert((try ParseNumber(u128).parse("340282366920938463463374607431768211454")) == 0xfffffffffffffffffffffffffffffffe);
     assert((try ParseNumber(u128).parse("340282366920938463463374607431768211455")) == 0xffffffffffffffffffffffffffffffff);
 
@@ -524,8 +539,8 @@ test "ParseNumber" {
     assert((try ParseNumber(f64).parse("-1.")) == -1.0);
     assert((try ParseNumber(f64).parse("-2.1")) == -2.1);
     assert((try ParseNumber(f64).parse("-1.2")) == -1.2);
-    assert(floatFuzzyEql(f64, try ParseNumber(f64).parse("1.2e2"),    1.2e2 , 0.00001));
-    assert(floatFuzzyEql(f64, try ParseNumber(f64).parse("-1.2e-2"),  -1.2e-2, 0.00001));
+    assert(floatFuzzyEql(f64, try ParseNumber(f64).parse("1.2e2"), 1.2e2, 0.00001));
+    assert(floatFuzzyEql(f64, try ParseNumber(f64).parse("-1.2e-2"), -1.2e-2, 0.00001));
 }
 
 pub fn floatFuzzyEql(comptime T: type, lhs: T, rhs: T, fuz: T) bool {
@@ -533,7 +548,7 @@ pub fn floatFuzzyEql(comptime T: type, lhs: T, rhs: T, fuz: T) bool {
     // then add the fuz to smaller and subract from larger
     // If smaller >= larger then they are equal
     var smaller: T = undefined;
-    var larger: T  = undefined;
+    var larger: T = undefined;
     if (lhs > rhs) {
         larger = lhs - fuz;
         smaller = rhs + fuz;
