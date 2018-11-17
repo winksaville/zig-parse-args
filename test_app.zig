@@ -18,11 +18,11 @@ const ParseNumber = parsers.ParseNumber;
 const globals = @import("modules/globals.zig");
 
 fn d(bit: usize) bool {
-    return globals.dbg_bits.r(globals.dbg_offset_parse_args + bit) == 1;
+    return globals.debug_bits.r(globals.dbg_offset_parse_args + bit) == 1;
 }
 
 fn dbgw(bit: usize, value: usize) void {
-    globals.dbg_bits.w(globals.dbg_offset_parse_args + bit, value);
+    globals.debug_bits.w(globals.dbg_offset_parse_args + bit, value);
 }
 
 pub fn main() !void {
