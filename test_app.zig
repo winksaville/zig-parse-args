@@ -34,13 +34,13 @@ pub fn main() !void {
 
     var arg_list = ArrayList(ArgRec).init(debug.global_allocator);
 
-    try arg_list.append(ArgRec {
+    try arg_list.append(ArgRec{
         .leader = "",
         .name = "count",
         .value_default_set = true,
         .value_set = false,
-        .arg_union = ArgUnionFields {
-            .argU32 = ArgUnion(u32) {
+        .arg_union = ArgUnionFields{
+            .argU32 = ArgUnion(u32){
                 .parser = ParseNumber(u32).parse,
                 .value_default = 32,
                 .value = 0,
@@ -83,8 +83,7 @@ pub fn main() !void {
         switch (arg.arg_union) {
             ArgUnionFields.argAlloced => {
                 if (arg.value_set) {
-                    warn("free arg_list[{}]: name={} value_set={} arg.value={}\n",
-                        i, arg.name, arg.value_set, arg.arg_union.argAlloced.value);
+                    warn("free arg_list[{}]: name={} value_set={} arg.value={}\n", i, arg.name, arg.value_set, arg.arg_union.argAlloced.value);
                     debug.global_allocator.free(arg.arg_union.argAlloced.value);
                 }
             },

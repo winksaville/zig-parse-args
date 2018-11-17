@@ -4,6 +4,7 @@ const assert = debug.assert;
 const assertError = debug.assertError;
 const warn = debug.warn;
 const mem = std.mem;
+const math = std.math;
 const Allocator = mem.Allocator;
 const builtin = @import("builtin");
 const TypeId = builtin.TypeId;
@@ -260,7 +261,7 @@ pub fn parseNumber(comptime T: type, pIter: *U8Iter(), radix_val: usize) ParseRe
         if (T.is_signed) {
             result.set(@intCast(T, @intCast(i128, value) & @intCast(T, -1)), pIter.curIdx(), digits);
         } else {
-            result.set(@intCast(T, value & @maxValue(T)), pIter.curIdx(), digits);
+            result.set(@intCast(T, value & math.maxInt(T)), pIter.curIdx(), digits);
         }
     }
     return result;
@@ -356,7 +357,7 @@ pub fn ParseNumber(comptime T: type) type {
 
 pub fn ParseAllocated(comptime T: type) type {
     return struct {
-        fn parse(pAllocator: *Allocator, str: []const u8) error!T {
+        fn parse(pAllocator: *Allocator, str: []const u8) anyerror!T {
             if (d(0)) warn("ParseAllocated:+ str={}\n", str);
             if (str.len == 0) return error.WTF;
             var result = try mem.dupe(pAllocator, u8, str);

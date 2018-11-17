@@ -35,7 +35,7 @@ pub const ArgIteratorTest = struct {
     args: []const []const u8,
 
     pub fn init(args: []const []const u8) Self {
-        return Self {
+        return Self{
             .index = 0,
             .count = args.len,
             .args = args,
@@ -72,20 +72,15 @@ pub const ArgIter = struct {
 
     ai: ArgIteratorEnum,
 
-
     pub fn initOsArgIter() Self {
-        return Self {
-            .ai = ArgIteratorEnum {
-                .osArgIter = std.os.ArgIterator.init(),
-            },
+        return Self{
+            .ai = ArgIteratorEnum{ .osArgIter = std.os.ArgIterator.init() },
         };
     }
 
     pub fn initTestArgIter(args: []const []const u8) Self {
-        return Self {
-            .ai = ArgIteratorEnum {
-                .testArgIter = ArgIteratorTest.init(args),
-            },
+        return Self{
+            .ai = ArgIteratorEnum{ .testArgIter = ArgIteratorTest.init(args) },
         };
     }
 
@@ -100,10 +95,10 @@ pub const ArgIter = struct {
     // the command line is parsed during next(). I believe
     // if the parsing was done by the bootstrap code
     // the allocator would not be necessary.
-    pub fn next(pSelf: *Self, pAllocator: *Allocator) ?error![]const u8 {     // <<< This works
-    //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(error![]const u8) { // <<< This works
-    //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(![]const u8) {      // <<< Why doesn't this work
-    //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?![]const u8 {        // <<< Why doesn't this work
+    pub fn next(pSelf: *Self, pAllocator: *Allocator) ?anyerror![]const u8 { // <<< This works
+        //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(error![]const u8) { // <<< This works
+        //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?(![]const u8) {      // <<< Why doesn't this work
+        //pub fn next(pSelf: *Self, pAllocator: *Allocator) ?![]const u8 {        // <<< Why doesn't this work
         switch (pSelf.ai) {
             ArgIteratorEnum.testArgIter => {
                 var elem = pSelf.ai.testArgIter.next();
@@ -113,7 +108,7 @@ pub const ArgIter = struct {
                 //if (d(1)) warn("&ArgIteratorEnum: &n[0]={*}\n", &n[0]);
                 //return (error![]const u8)(n);
             },
-            ArgIteratorEnum.osArgIter => return (?error![]const u8)(pSelf.ai.osArgIter.next(pAllocator)),
+            ArgIteratorEnum.osArgIter => return (?anyerror![]const u8)(pSelf.ai.osArgIter.next(pAllocator)),
         }
     }
 
@@ -130,8 +125,10 @@ pub const ArgIter = struct {
 };
 
 pub const ArgRec = struct {
-    leader: []const u8,                   /// empty if none
-    name: []const u8,               /// name of arg
+    /// empty if none
+    leader: []const u8,
+    /// name of arg
+    name: []const u8,
 
     // Upon exit from parseArg the following holds:
     //
@@ -154,15 +151,18 @@ pub const ArgRec = struct {
     // Thus if the user initializes value_default and sets value_default_set to true
     // then value will always have a "valid" value and value_set will be true if
     // the value came from the command line and false if it came from value_default.
-    value_default_set: bool,         /// true if value_default has default value
-    value_set: bool,                 /// true if parseArgs set the value from command line
+    /// true if value_default has default value
+    value_default_set: bool,
+    /// true if parseArgs set the value from command line
+    value_set: bool,
 
-    arg_union: ArgUnionFields,       /// union
+    /// union
+    arg_union: ArgUnionFields,
 
     fn initNamed(
         comptime T: type,
         name: []const u8,
-        default: T
+        default: T,
     ) ArgRec {
         return initFlag(T, "", name, default);
     }
@@ -171,7 +171,7 @@ pub const ArgRec = struct {
         comptime T: type,
         leader: []const u8,
         name: []const u8,
-        default: T
+        default: T,
     ) ArgRec {
         var v: ArgRec = undefined;
         v.leader = leader;
@@ -181,8 +181,8 @@ pub const ArgRec = struct {
         switch (T) {
             u32 => {
                 if (d(1)) warn("initFlag: u32\n");
-                v.arg_union = ArgUnionFields {
-                    .argU32 = ArgUnion(u32) {
+                v.arg_union = ArgUnionFields{
+                    .argU32 = ArgUnion(u32){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(u32).parse,
@@ -191,8 +191,8 @@ pub const ArgRec = struct {
             },
             i32 => {
                 if (d(1)) warn("initFlag: i32\n");
-                v.arg_union = ArgUnionFields {
-                    .argI32 = ArgUnion(i32) {
+                v.arg_union = ArgUnionFields{
+                    .argI32 = ArgUnion(i32){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(i32).parse,
@@ -201,8 +201,8 @@ pub const ArgRec = struct {
             },
             u64 => {
                 if (d(1)) warn("initFlag: u64\n");
-                v.arg_union = ArgUnionFields {
-                    .argU64 = ArgUnion(u64) {
+                v.arg_union = ArgUnionFields{
+                    .argU64 = ArgUnion(u64){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(u64).parse,
@@ -211,8 +211,8 @@ pub const ArgRec = struct {
             },
             i64 => {
                 if (d(1)) warn("initFlag: i64\n");
-                v.arg_union = ArgUnionFields {
-                    .argI64 = ArgUnion(i64) {
+                v.arg_union = ArgUnionFields{
+                    .argI64 = ArgUnion(i64){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(i64).parse,
@@ -221,8 +221,8 @@ pub const ArgRec = struct {
             },
             u128 => {
                 if (d(1)) warn("initFlag: u128\n");
-                v.arg_union = ArgUnionFields {
-                    .argU128 = ArgUnion(u128) {
+                v.arg_union = ArgUnionFields{
+                    .argU128 = ArgUnion(u128){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(u128).parse,
@@ -231,8 +231,8 @@ pub const ArgRec = struct {
             },
             i128 => {
                 if (d(1)) warn("initFlag: i128\n");
-                v.arg_union = ArgUnionFields {
-                    .argI128 = ArgUnion(i128) {
+                v.arg_union = ArgUnionFields{
+                    .argI128 = ArgUnion(i128){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(i128).parse,
@@ -241,8 +241,8 @@ pub const ArgRec = struct {
             },
             f32 => {
                 if (d(1)) warn("initFlag: f32\n");
-                v.arg_union = ArgUnionFields {
-                    .argF32 = ArgUnion(f32) {
+                v.arg_union = ArgUnionFields{
+                    .argF32 = ArgUnion(f32){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(f32).parse,
@@ -251,8 +251,8 @@ pub const ArgRec = struct {
             },
             f64 => {
                 if (d(1)) warn("initFlag: f64\n");
-                v.arg_union = ArgUnionFields {
-                    .argF64 = ArgUnion(f64) {
+                v.arg_union = ArgUnionFields{
+                    .argF64 = ArgUnion(f64){
                         .value_default = default,
                         .value = default,
                         .parser = ParseNumber(f64).parse,
@@ -261,8 +261,8 @@ pub const ArgRec = struct {
             },
             []const u8 => {
                 if (d(1)) warn("initFlag: []const u8\n");
-                v.arg_union = ArgUnionFields {
-                    .argAlloced = ArgUnion([]const u8) {
+                v.arg_union = ArgUnionFields{
+                    .argAlloced = ArgUnion([]const u8){
                         .value_default = default,
                         .value = default,
                         .parser = ParseAllocated([]const u8).parse,
@@ -273,7 +273,6 @@ pub const ArgRec = struct {
         }
         return v;
     }
-
 };
 
 // ArgUnionFields should be more generic
@@ -295,12 +294,13 @@ pub fn ArgUnion(comptime T: type) type {
 
         /// Parse the []const u8 to T
         parser: comptime switch (TypeId(@typeInfo(T))) {
-                TypeId.Pointer, TypeId.Array, TypeId.Struct =>
-                        fn(*Allocator, []const u8) error!T,
-                else => fn([]const u8) error!T,
+            TypeId.Pointer, TypeId.Array, TypeId.Struct => fn (*Allocator, []const u8) anyerror!T,
+            else => fn ([]const u8) anyerror!T,
         },
-        value_default: T,               /// value_default copied to value if .value_default_set is true and value_set is false
-        value: T,                       /// value is from command line if .value_set is true
+        /// value_default copied to value if .value_default_set is true and value_set is false
+        value_default: T,
+        /// value is from command line if .value_set is true
+        value: T,
     };
 }
 
@@ -313,7 +313,7 @@ const ParsedArg = struct {
 
 fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg {
     if (d(0)) warn("&leader[0]={*} &raw_arg[0]={*} &sep[0]={*}\n", &leader[0], &raw_arg[0], &sep[0]);
-    var parsedArg = ParsedArg {
+    var parsedArg = ParsedArg{
         .leader = "",
         .lhs = "",
         .sep = "",
@@ -326,12 +326,12 @@ fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg 
     }
     var sep_idx = idx;
     var found_sep = while (sep_idx < raw_arg.len) : (sep_idx += 1) {
-                        if (mem.eql(u8, raw_arg[sep_idx..(sep_idx + sep.len)], sep[0..])) {
-                            parsedArg.sep = sep;
-                            if (d(0)) warn("&parsedArg.sep[0]={*} &sep[0]={*}\n", &parsedArg.sep[0], &sep[0]);
-                            break true;
-                        }
-                    } else false;
+        if (mem.eql(u8, raw_arg[sep_idx..(sep_idx + sep.len)], sep[0..])) {
+            parsedArg.sep = sep;
+            if (d(0)) warn("&parsedArg.sep[0]={*} &sep[0]={*}\n", &parsedArg.sep[0], &sep[0]);
+            break true;
+        }
+    } else false;
     if (found_sep) {
         parsedArg.lhs = raw_arg[idx..sep_idx];
         parsedArg.sep = sep;
@@ -339,15 +339,10 @@ fn parseArg(leader: []const u8, raw_arg: []const u8, sep: []const u8) ParsedArg 
     } else {
         parsedArg.lhs = raw_arg[idx..];
     }
-    if (d(0)) warn("&parsedArg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n",
-        &parsedArg,
-        if (parsedArg.leader.len != 0) &parsedArg.leader[0] else null,
-        if (parsedArg.lhs.len != 0) &parsedArg.lhs[0] else null,
-        if (parsedArg.sep.len != 0) &parsedArg.sep[0] else null,
-        if (parsedArg.rhs.len != 0) &parsedArg.rhs[0] else null);
-    return parsedArg; /// Assume this isn't copyied?
+    if (d(0))
+        warn("&parsedArg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n", &parsedArg, if (parsedArg.leader.len != 0) &parsedArg.leader[0] else null, if (parsedArg.lhs.len != 0) &parsedArg.lhs[0] else null, if (parsedArg.sep.len != 0) &parsedArg.sep[0] else null, if (parsedArg.rhs.len != 0) &parsedArg.rhs[0] else null);
+    return parsedArg; // Assume this isn't copyied?
 }
-
 
 pub fn parseArgs(
     pAllocator: *Allocator,
@@ -368,7 +363,6 @@ pub fn parseArgs(
         var arg_proto: *ArgRec = &arg_proto_list.items[i];
         if (d(0)) warn("&arg_proto={*} name={}\n", arg_proto, arg_proto.name);
 
-
         if (arg_proto_map.contains(arg_proto.name)) {
             var pKV = arg_proto_map.get(arg_proto.name);
             var v = pKV.?.value;
@@ -379,45 +373,42 @@ pub fn parseArgs(
 
         i += 1;
     }
-    
+
     // Loop through all of the arguments passed setting the prototype values
     // and returning the positional list.
     while (args_it.next(pAllocator)) |arg_or_error| {
         // raw_arg must be freed is was allocated by args_it.next(pAllocator) above!
         var raw_arg = try arg_or_error;
-        defer if (d(1)) { warn("free: &raw_arg[0]={*} &raw_arg={*} raw_arg={}\n", &raw_arg[0], &raw_arg, raw_arg);
-                pAllocator.free(raw_arg); };
+        defer if (d(1)) {
+            warn("free: &raw_arg[0]={*} &raw_arg={*} raw_arg={}\n", &raw_arg[0], &raw_arg, raw_arg);
+            pAllocator.free(raw_arg);
+        };
 
         if (d(1)) warn("&raw_arg[0]={*} raw_arg={}\n", &raw_arg[0], raw_arg);
         var parsed_arg = parseArg("--", raw_arg, "=");
-        if (d(1)) warn("&parsed_arg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n",
-            &parsed_arg,
-            if (parsed_arg.leader.len != 0) &parsed_arg.leader[0] else null,
-            if (parsed_arg.lhs.len != 0) &parsed_arg.lhs[0] else null,
-            if (parsed_arg.sep.len != 0) &parsed_arg.sep[0] else null,
-            if (parsed_arg.rhs.len != 0) &parsed_arg.rhs[0] else null);
+        if (d(1))
+            warn("&parsed_arg={*} &leader[0]={*} &lhs[0]={*} &sep[0]={*} &rhs[0]={*}\n", &parsed_arg, if (parsed_arg.leader.len != 0) &parsed_arg.leader[0] else null, if (parsed_arg.lhs.len != 0) &parsed_arg.lhs[0] else null, if (parsed_arg.sep.len != 0) &parsed_arg.sep[0] else null, if (parsed_arg.rhs.len != 0) &parsed_arg.rhs[0] else null);
         var pKV = arg_proto_map.get(parsed_arg.lhs);
         if (pKV == null) {
             // Doesn't match
-            if (mem.eql(u8, parsed_arg.leader, "") and mem.eql(u8, parsed_arg.rhs, ""))  {
+            if (mem.eql(u8, parsed_arg.leader, "") and mem.eql(u8, parsed_arg.rhs, "")) {
                 if (mem.eql(u8, parsed_arg.sep, "")) {
                     try positionalArgs.append(parsed_arg.lhs);
                     continue;
                 } else {
-                    if(d(1)) warn("error.UnknownButEmptyNamedParameterUnknown, raw_arg={} parsed parsed_arg={}\n",
-                            raw_arg, parsed_arg);
+                    if (d(1))
+                        warn("error.UnknownButEmptyNamedParameterUnknown, raw_arg={} parsed parsed_arg={}\n", raw_arg, parsed_arg);
                     return error.UnknownButEmptyNamedParameter;
                 }
             } else {
-                if(d(1)) warn("error.UnknownOption raw_arg={} parsed parsed_arg={}\n", raw_arg, parsed_arg);
+                if (d(1)) warn("error.UnknownOption raw_arg={} parsed parsed_arg={}\n", raw_arg, parsed_arg);
                 return error.UnknownOption;
-            } 
+            }
         }
 
         // Got a match
         var v = pKV.?.value;
-        var isa_option = if (mem.eql(u8, parsed_arg.leader, "")) false
-                         else mem.eql(u8, parsed_arg.leader[0..], v.leader[0..]);
+        var isa_option = if (mem.eql(u8, parsed_arg.leader, "")) false else mem.eql(u8, parsed_arg.leader[0..], v.leader[0..]);
         if (!mem.eql(u8, parsed_arg.rhs, "")) {
             // Set value to the rhs
             switch (v.arg_union) {
@@ -473,7 +464,7 @@ test "parseArgs.basic" {
     try argList.append(ArgRec.initNamed([]const u8, "first_name", "ken"));
 
     // Create arguments that we will parse
-    var arg_iter = ArgIter.initTestArgIter([]const []const u8 {
+    var arg_iter = ArgIter.initTestArgIter([]const []const u8{
         "file.exe", // The first argument is the "executable" and is skipped
         "hello",
         "countU32=321",
@@ -531,8 +522,7 @@ test "parseArgs.basic" {
         switch (arg.arg_union) {
             ArgUnionFields.argAlloced => {
                 if (arg.value_set) {
-                    warn("free argList[{}]: name={} value_set={} arg.value={}\n",
-                        i, arg.name, arg.value_set, arg.arg_union.argAlloced.value);
+                    warn("free argList[{}]: name={} value_set={} arg.value={}\n", i, arg.name, arg.value_set, arg.arg_union.argAlloced.value);
                     debug.global_allocator.free(arg.arg_union.argAlloced.value);
                 }
             },
